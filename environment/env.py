@@ -27,8 +27,8 @@ import pygame
 import random
 
 # For GUI mode Switch
-# GUI_FLAG = True         # True : game runs in GUI mode 
-GUI_FLAG = False        # False: game runs in CLI mode
+GUI_FLAG = True         # True : game runs in GUI mode 
+# GUI_FLAG = False        # False: game runs in CLI mode
 
 
 if GUI_FLAG:
@@ -194,11 +194,14 @@ def gui_mode():
         keyword_rects = []        
         for i, keyword in enumerate(get_available_keywords()):
             x = 50 + (i % 10) * 70
-            y = 100 + (i // 10) * 50
+            y = 300 + (i // 10) * 50
             rect = pygame.Rect(x - 10, y - 10, 50, 40)  # Button around each keyword
             keyword_rects.append((keyword, rect))
+        return keyword_rects
     
-    generate_rectangles()
+    keyword_rects = generate_rectangles()
+    # DEBUG
+    # print(keyword_rects) 
     
     # skip button:
     skip_button_rect = pygame.Rect(600, 200, 100, 40)
@@ -216,7 +219,7 @@ def gui_mode():
         # display available keywords:
         draw_text(message, 50, 50)
         
-        draw_text("Avaiable Keywords:", 50, 50)
+        draw_text("Avaiable Keywords:", 50, 150)
        
         # Draw keywords as buttons
         for keyword, rect in keyword_rects:
@@ -237,9 +240,9 @@ def gui_mode():
         
         # Display current keyword and bid input box if a keyword is selected
         if selected_keyword:
-            draw_text(f"Selected Keyword: {selected_keyword}", 50, 300)
-            draw_text("Enter your bid:", 50, 350)
-            draw_text(player_bid, 200, 350)
+            draw_text(f"Selected Keyword: {selected_keyword}", 50, 400)
+            draw_text("Enter your bid:", 50, 450)
+            draw_text(player_bid, 300, 450)
 
         # Handle events
         for event in pygame.event.get():
@@ -251,11 +254,13 @@ def gui_mode():
                     if event.key == pygame.K_RETURN:
                         # Place bid
                         try:
-                            bid_amount = float(player_bid)
-                            bid_result, sec_bid = step(True, selected_keyword, bid_amount)
-                            message = "Do you want to participate in this bid cycle?"
+                            bid_amount = float(player_bid)    
                         except ValueError:
                             message = "Invalid bid amount."
+                        
+                        bid_result, sec_bid = step(True, selected_keyword, bid_amount)
+                        keyword_rects = generate_rectangles
+                        # message = "Do you want to participate in this bid cycle?"
                         
                         player_bid = ''
                         selected_keyword = None
@@ -279,7 +284,7 @@ def gui_mode():
                 if skip_button_rect.collidepoint(mouse_x, mouse_y):
                     bid_result, sec_bid = step(False)
                     setup()  # Generate new keywords for the next cycle
-                    generate_rectangles()  # Update the keyword_rects to reflect new keywords
+                    keyword_rects = generate_rectangles()  # Update the keyword_rects to reflect new keywords
                     message = "New keywords generated for next cycle."
 
         pygame.display.flip()
