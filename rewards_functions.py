@@ -49,6 +49,8 @@ def calculate_reward(state,max_budget_consumption_per_auction = 0.25, stop_penal
     budget_left = float(input("budget_left: ") ) # replace this with returned updated budget from current state
     keyword_importance = float(input("keyword_importance: ") ) # from environment or simulation?
 
+    priority_keyword = input("Is this a priority keyword (True / False): ")  # from environment or simulation?
+
     # did agent win or not
     won_boolean = bid_cost < bid_placed
     print('auction result:' ,won_boolean)
@@ -57,7 +59,7 @@ def calculate_reward(state,max_budget_consumption_per_auction = 0.25, stop_penal
     if won_boolean == False:
 
         # case where it's an auction we don't mind losing
-        if keyword_importance < 50: # replace the "50" here with some threshold that depicts a "low" value keyword
+        if priority_keyword.lower() == "false": #if not a priorty keyword, then it's okay that we didn't win and we don't want to penalize
             return keyword_importance # just go ahead and return the reward (skip computation below)
 
         # case where we lost and we aren't happy about it
@@ -70,7 +72,8 @@ def calculate_reward(state,max_budget_consumption_per_auction = 0.25, stop_penal
         #           --> over-consumed budget in order to win/beat the cost?
         #           --> overbid when the cost was low?
 
-        budget_consumption_max = max_budget_consumption_per_auction * original_budget
+        # get the maximum amount of budget allowed to have been spent based on budget for this simulation
+        budget_consumption_max = max_budget_consumption_per_auction * (budget_left + bid_cost)
 
 
         #penalty will be the percent we reduce the reward by
@@ -79,7 +82,7 @@ def calculate_reward(state,max_budget_consumption_per_auction = 0.25, stop_penal
 
         # used too much of the budget
         if bid_placed > budget_consumption_max:
-            print("used too much of the budget!")
+            print(f"used {bid_placed} which is > {budget_consumption_max} AKA too much of the budget!")
             penalty = penalty + 0.2
 
         # overbid by greater than a half of cost - how should/should I parameterize this?
@@ -91,58 +94,47 @@ def calculate_reward(state,max_budget_consumption_per_auction = 0.25, stop_penal
         percent_budget_left = budget_left / original_budget
         print("percent budget left:",percent_budget_left)
 
+        # when there is "stop_penalty_percent" amount of budget left we want to stop (or decay) penalizing overbidding and budget
+        # since we aren't as worried about overspending in the initial stages
+        # --> for example: if stop_penalty_percent = 0.1, this means when there is <= 10% of the budget left
+        #                  we reduce penalty
         if percent_budget_left <= stop_penalty_percent:
-            print("applying stop penalty decay value")
+            print(f"penalty would have been: {penalty}, but since <= {stop_penalty_percent} budget left...")
             penalty = penalty * stop_penalty_decay
+            print(f"applying stop penalty decay value results in {penalty} penalty ")
 
 
         # if no penalty, reward is just the bid impressions (value straight from keyword importance)
         print(f'total penalty: {penalty}')
 
-        reward = (keyword_importance - diff_bid) - (keyword_importance * penalty)
+        # note: +1 since diff_bid = 1 when cost and keyword importance are within 1 "dollar" of each other
+        # --> we can consider the bid and cost being within margin of 1 an ideal situation so don't want to penalize
+        reward = (keyword_importance - diff_bid + 1) - (keyword_importance * penalty)
+
         return reward
+
+def aggregate_rewards(episode_rewards) :
+    '''Aggregates rewards for an entire episode where param "episode_rewards" is a list '''
+    return sum(episode_rewards)
 
 
 def main():
     state = {} # to be replaced with some state
 
-    # simulate with the below values:
+    #see screenshots in github for examples of each case (overbudget, overspend, non priority kw, priority kw, etc.)
 
-    #---overbid----
-    # bid_placed = 100  # replace this with returned amount the agent just bid from current state
-    # bid_cost = 10  # replace this with returned bid cost from current state
-    # budget_left = 900  # replace this with returned updated budget from current state
-    # won_boolean = True # replace this with returned boolean value from auction for current state
-    # importance = 50
-    print(calculate_reward(state, 0.25, 0.5, stop_penalty_decay=0))
-    #--> -50
+    #when stop_penalty decay = 0, when there 10% budget left of the original budget,
+    # --> stop penalizing overbidding/allow using a lot of budget
+    print(calculate_reward(state, 0.25, 0.1, stop_penalty_decay=0))
 
-    #--- no overbid, no over budget consumption ---
-    # bid_placed = 12  # replace this with returned amount the agent just bid from current state
-    # bid_cost = 10  # replace this with returned bid cost from current state
-    # budget_left = 900  # replace this with returned updated budget from current state
-    # won_boolean = True # replace this with returned boolean value from auction for current state
-    # importance = 50
-    print(calculate_reward(state, 0.25, 0.5, stop_penalty_decay=0))
-    # --> 48
+    #when stop_penalty decay = 1, when there 10% budget left of the original budget,
+    # --> reduce overall penalty by 50% for overbidding/allow using a lot of budget
+    print(calculate_reward(state, 0.25, 0.1, stop_penalty_decay=0.5))
 
-    # --- no overbid, yes budget consumption, stop penalty reached--
-    # bid_placed = 700  # replace this with returned amount the agent just bid from current state
-    # bid_cost = 695  # replace this with returned bid cost from current state
-    # budget_left = 900  # replace this with returned updated budget from current state
-    # won_boolean = True # replace this with returned boolean value from auction for current state
-    # importance = 50
-    print(calculate_reward(state, 0.25, 0.5, stop_penalty_decay=0))
-    # --> 35
+    #when stop_penalty decay = 1, when there 10% budget left of the original budget,
+    # --> keep penalizing as normal for overbidding/allow using a lot of budget
+    print(calculate_reward(state, 0.25, 0.1, stop_penalty_decay=1))
 
-    # --- no overbid, yes budget consumption, stop penalty applied (no longer penalizing since < specified amt of budget left
-    # bid_placed = 401  # replace this with returned amount the agent just bid from current state
-    # bid_cost = 400  # replace this with returned bid cost from current state
-    # budget_left = 499  # replace this with returned updated budget from current state
-    # won_boolean = True # replace this with returned boolean value from auction for current state
-    # importance = 50
-    print(calculate_reward(state, 0.25, 0.5, stop_penalty_decay=0))
-    # --> 49
 
 
 
