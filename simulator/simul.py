@@ -12,6 +12,9 @@ The simulation includes:
 
 import random
 import numpy as np
+import environment.env as env
+
+env.setup()
 
 class AuctionSimulator:
     """
@@ -21,29 +24,21 @@ class AuctionSimulator:
     It manages budget tracking, impression generation, bidding logic, and performance metrics.
     """
 
-    def __init__(self, num_competitors, initial_budget, value_per_click, bid_distribution='normal', mean=50, stddev=10):
+    def __init__(self, initial_budget, keyword_list, done):
         """
         Initialize the auction simulator with competitors and tracking metrics.
 
         Parameters:
-        - num_competitors (int): Number of competitors in the auction.
-        - initial_budget (float): Starting budget for the agent.
-        - value_per_click (float): Base value per click used for dynamic bid calculation.
-        - bid_distribution (str): Type of distribution for generating competitor bids ('normal' or 'uniform').
-        - mean (float): Mean value for the bid distribution.
-        - stddev (float): Standard deviation for the bid distribution (if applicable).
+
         """
-        self.num_competitors = num_competitors
-        self.bid_distribution = bid_distribution
-        self.mean = mean
-        self.stddev = stddev
+   
         self.initial_budget = initial_budget
         self.remaining_budget = initial_budget
         self.num_wins = 0
         self.total_auctions = 0
-        self.value_per_click = value_per_click
-        self.desired_keywords = []  # User-defined keywords for tracking.
-
+        self.desired_keywords = keyword_list  # User-defined keywords for tracking.
+        self.done = False
+        
     def prompt_keywords(self):
         """
         Contributor: Hamza
@@ -56,80 +51,92 @@ class AuctionSimulator:
             keyword = input(f"Keyword {i + 1}: ").strip()
             self.desired_keywords.append(keyword)
         print(f"Tracked Keywords: {self.desired_keywords}")
-
-    def generate_impression(self):
+    
+    def win_update_budget(self, remaining_budget, bid):
         """
         Contributor: Hamza
 
-        Generate a simulated ad impression with attributes like keyword, page content, user profile, and pCTR.
-        The impression is randomly generated based on tracked keywords or defaults.
-        
-        Returns:
-        - dict: Impression details including keyword, user profile, page content, and pCTR.
-        """
-        keyword = random.choice(self.desired_keywords if self.desired_keywords else ["Keyword1", "Keyword2", "Keyword3"])
-        page_content = f"Content for {keyword}"
-        user_profile = f"User interested in {keyword}"
-        pctr = round(random.uniform(0.1, 0.9), 2)  # Simulated pCTR between 0.1 and 0.9
-        return {"keyword": keyword, "page_content": page_content, "user_profile": user_profile, "pCTR": pctr}
-
-    def simulate_competitor_bids(self):
-        """
-        Contributor: Hamza
-
-        Generate bids for competitors based on the selected bid distribution.
-
-        Returns:
-        - list: A list of bids from all competitors.
-        """
-        if self.bid_distribution == 'normal':
-            bids = np.random.normal(self.mean, self.stddev, self.num_competitors)
-            bids = [max(0, bid) for bid in bids]  # Ensure no negative bids
-        elif self.bid_distribution == 'uniform':
-            bids = np.random.uniform(0, self.mean * 2, self.num_competitors)
-        else:
-            raise ValueError("Invalid bid distribution type. Choose 'normal' or 'uniform'.")
-        return bids
-
-    def run_auction(self, pctr):
-        """
-        Contributor: Hamza
-
-        Execute a second-price auction for the given pCTR. The agent bids using the formula:
-        Bid = pCTR × Value per Click.
-
-        The agent wins if its bid is the highest and pays the second-highest bid.
+        Update the agent's remaining budget after each auction.
 
         Parameters:
-        - pctr (float): Predicted Click-Through Rate for the impression.
+        - remaining_budget (float): The agent's remaining budget.
+        - bid (float): The bid amount for the current auction.
+        """
+        self.remaining_budget = remaining_budget - bid
+    
+    def win_count_update(self):
+        """
+        Contributor: Hamza
+
+        Update the agent's win count after each auction.
+
+        Parameters:
+        - win_count (int): The number of auctions won by the agent.
+        """
+        self.num_wins += 1
+
+    def total_auctions_update(self):
+        """
+        Contributor: Hamza
+
+        Update the total number of auctions after each auction.
+        """
+        self.total_auctions += 1
+
+    def get_rank(self, keyword):
+        """
+        Contributor: Hamza
+
+        Get the rank of a keyword in the list of desired keywords.
+
+        Parameters:
+        - keyword (str): The keyword to search for.
+
+        Returns:
+        - int: The rank of the keyword in the list of desired keywords.
+        """
+        if keyword:
+            return self.desired_keywords.index(keyword) + 1   
+        else:
+            return 0
+    
+    def is_terminal(self,done):
+        """
+        Contributor: Hamza
+
+        Check if the agent has exhausted its budget or completed all auctions.
+
+        Returns:
+        - bool: True if the agent has no budget or completed all auctions, False otherwise.
+        """
+        done = self.remaining_budget <= 50 or self.total_auctions == 10000 
+        return done
+    
+
+    def run_auction_step(self, bid_bool, keyword, bid_amount, done):
+        """
+        Contributor: Hamza
+
+        The agent wins if its bid is the highest and pays the second-highest bid.
 
         Returns:
         - dict: Results of the auction including win status, cost, margin, and impression details.
         """
-        agent_bid = pctr * self.value_per_click  # Calculate agent's bid.
-        competitor_bids = self.simulate_competitor_bids()
-        all_bids = competitor_bids + [agent_bid]
-        all_bids.sort(reverse=True)
-
-        impression = self.generate_impression()
-        print(f"Your Bid: {agent_bid:.2f}, Winning Bid: {all_bids[0]:.2f}")
-
-        if agent_bid == all_bids[0]:  # Agent wins
-            cost = all_bids[1]
-            margin = agent_bid - all_bids[1]  # How much more the agent bid than the second-highest bid
-            if self.remaining_budget >= cost:
-                self.remaining_budget -= cost
-                self.num_wins += 1
-                self.total_auctions += 1
-                return {"win": True, "cost": cost, "margin": margin, "impression": impression}
+        done = self.is_terminal(self, done)
+        if not done:
+            if bid_bool:
+                bid_result, cost = env.step(bid_bool, keyword, bid_amount)
+                if bid_result:
+                    self.win_count_update()
+                    self.win_update_budget(self.remaining_budget, bid_amount)
+                    self.total_auctions_update()
+                    return {"win": True, "cost": cost, "margin": bid_amount - cost, "remaining_budget": self.remaining_budget, "rank": self.get_rank(keyword) , "bid_amount": bid_amount, "done": done}
+                else:
+                    self.total_auctions_update()
+                    return {"win": False, "cost": None, "margin": bid_amount - cost, "remaining_budget": self.remaining_budget, "rank": self.get_rank(keyword), "bid_amount": bid_amount, "done": done}
             else:
-                return {"win": False, "cost": 0.0, "margin": margin, "impression": impression}  # Budget exceeded
-        else:
-            margin = all_bids[0] - agent_bid  # How much less the agent bid than the highest bid
-            self.total_auctions += 1
-            return {"win": False, "cost": 0.0, "margin": margin, "impression": impression}
-
-
+                env.step(bid_bool)
+        
 
     def get_metrics(self):
         """
@@ -147,28 +154,3 @@ class AuctionSimulator:
             "Total Auctions": self.total_auctions,
             "Win Rate": win_rate,
         }
-
-
-# Example usage of the Auction Simulator
-if __name__ == "__main__":
-    # Initialize the simulator
-    simulator = AuctionSimulator(num_competitors=5, initial_budget=500, value_per_click=10, bid_distribution='normal', mean=50, stddev=10)
-    
-    # Prompt user to define keywords
-    simulator.prompt_keywords()
-
-    # Simulate 10 auctions
-    for i in range(10):
-        impression = simulator.generate_impression()
-        print(f"\nAuction {i + 1}: Impression Details: {impression}")
-
-        # Run the auction for the generated impression
-        result = simulator.run_auction(impression["pCTR"])
-        if result["win"]:
-            print(f"You won the auction! Cost: {result['cost']:.2f}, Won by: {result['margin']:.2f}")
-        else:
-            print(f"You lost the auction. Lost by: {result['margin']:.2f}")
-
-        # Display metrics after each auction
-        metrics = simulator.get_metrics()
-        print("Metrics:", metrics)
