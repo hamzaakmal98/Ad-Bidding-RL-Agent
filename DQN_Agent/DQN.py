@@ -1,11 +1,11 @@
 import torch
 from torch import nn
-import gym
 from collections import deque
 import itertools
 import numpy as np
 import random
 from typing import Optional
+from simulator.simul import AuctionSimulator
 
 '''
 NOTE by Weijia: 
@@ -18,7 +18,7 @@ class DQNAgent:
     ''' A Deep Q Network agent using the concept of Double Q-learning.
 
     Attributes:
-        env (pygame) : bidding simulating environment
+        env (AuctionSimulator) : bidding simulating environment
         value_per_click (float) : Base value per click used in dynamic bid calculation
         gamma (float) : discount factor when considering future reward
         train_batch_size (int) : number of samples to be trained on during each training iteration
@@ -34,8 +34,9 @@ class DQNAgent:
         learning_rate (float) : learning rate used to optimized the online net
         logging_frequency (int or None) : frequency of the logging. If None, then no logging will be shown
     '''
-    def __init__(self, env, value_per_click: float, gamma: float = 0.99, train_batch_size: int = 32, replay_buffer_size: int = 50000, min_replay_size: int = 1000, 
-                 reward_buffer_size: int = 100, epsilon_start: float = 1.0, epsilon_end: float = 0.02, epsilon_decay_period: int = 10000,
+    def __init__(self, env: AuctionSimulator, value_per_click: float, gamma: float = 0.99, train_batch_size: int = 32, 
+                 replay_buffer_size: int = 50000, min_replay_size: int = 1000, reward_buffer_size: int = 100, 
+                 epsilon_start: float = 1.0, epsilon_end: float = 0.02, epsilon_decay_period: int = 10000,
                  target_update_frequency: int = 1000, learning_rate: float = 5e-4, logging_frequency: Optional[int] = 1000):
         self.env = env
         self.value_per_click = value_per_click
@@ -70,7 +71,6 @@ class DQNAgent:
         self.price_net = BidPriceNet()  # the model determining a price to bid in order to win the auction
         self.optimizerPrice = torch.optim.Adam(self.price_net.parameters(), lr=learning_rate)
 
-
     def calculate_bid(self, pctr):
         """ Calculates a dynamic bid amount based on pCTR (predicted Click-Through Rate) and value per click."""
         return pctr * self.value_per_click
@@ -94,7 +94,8 @@ class DQNAgent:
         # Partially fill the replay buffer with observations from completely random actions for exploration of the environment
         for _ in range(self.min_replay_size):
             action = self.random_action(obs)
-            new_obs, reward, done, _, _ = self.env.step(action)  # truncated (bool) and info (dict) are ignored
+
+            new_obs, reward, done, _, _ = self.env.step(action, bid, bid_price)  # truncated (bool) and info (dict) are ignored
             transition = (obs, action, reward, done, new_obs)
             self.replay_buffer.append(transition)
             obs = new_obs
@@ -109,6 +110,7 @@ class DQNAgent:
 
         # for step in range(1):     # For debug purposes
         for step in itertools.count():  # Infinite loop, need to break using some logic
+            current_state = self.env.get_metrics()
             # Uses epsilon greedy approach for facilitating exploration in the beginning
             self.epsilon = np.interp(step, [0, self.epsilon_decay_period], [self.epsilon_start, self.epsilon_end])
             action = self.select_action(obs)
@@ -118,7 +120,7 @@ class DQNAgent:
                 bid_price = 0
             else:
                 bid = True
-                bid_price = torch.clamp(self.price_net(), 0, self.env.budget).item()
+                bid_price = torch.clamp(self.price_net(), 0, current_state["Remaining Budget"]).item()
 
             # Take the action and record the transition into the replay buffer
             new_obs, reward, done, _, _ = self.env.step(action, bid, bid_price)  # truncated (bool) and info (dict) are ignored
