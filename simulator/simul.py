@@ -10,10 +10,10 @@ The simulation includes:
 4. Tracking the agent's performance metrics like budget, number of wins, and win rate.
 """
 
-import random
-import numpy as np
+
 import environment.env as env
 import rewards.rewards_functions as rewards
+from environment.env import KEYWORDS
 
 env.setup()
 
@@ -25,11 +25,14 @@ class AuctionSimulator:
     It manages budget tracking, impression generation, bidding logic, and performance metrics.
     """
 
-    def __init__(self, initial_budget, keyword_list, done):
+    def __init__(self, initial_budget, keyword_list):
         """
-        Initialize the auction simulator with competitors and tracking metrics.
+        Initialize the auction simulator episode with initial budget and 3 desired priority keywords.
 
         Parameters:
+            initial_budget - constant defined by user,
+            keyword_list - list of 3 user-defined priority keywords
+
 
         """
    
@@ -115,6 +118,13 @@ class AuctionSimulator:
         """
         done = self.remaining_budget <= budget_lower_limit or self.total_auctions >= max_rounds
         return done
+
+
+    def get_all_possible_keywords_in_env(self):
+        return env.KEYWORDS
+
+    def get_current_available_keywords(self):
+        return env.available_keywords()
     
 
     def run_auction_step(self, bid_bool, keyword, bid_amount):
@@ -141,6 +151,9 @@ class AuctionSimulator:
         """
 
         done = self.is_terminal(self)
+
+
+
         # check if we reached a terminal state
         if not done:
 
