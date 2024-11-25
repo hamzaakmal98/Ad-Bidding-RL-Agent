@@ -47,7 +47,7 @@ class Main:
             value_per_click=agent_config['value_per_click']
         )
 
-    def train(self, num_episodes: int):
+    def train(self, num_episodes: int):     # TODO: don't worry about this, the current version of DQN and Q-Learning both implemented a training method
         """Train the agent for specified number of episodes."""
         self.logger.log_info(f"Starting training for {num_episodes} episodes")
 
@@ -58,7 +58,7 @@ class Main:
 
             while self.simulator.remaining_budget > 0:
                 # Generate impression
-                impression = self.simulator.generate_impression()
+                impression = self.simulator.generate_impression()   # TODO: the impression is from the env?
                 state = (
                     impression['keyword'],
                     self.simulator.remaining_budget,

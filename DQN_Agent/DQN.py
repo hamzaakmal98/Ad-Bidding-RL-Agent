@@ -95,7 +95,7 @@ class DQNAgent:
         for _ in range(self.min_replay_size):
             action = self.random_action(obs)
 
-            new_obs, reward, done, _, _ = self.env.step(action, bid, bid_price)  # truncated (bool) and info (dict) are ignored
+            new_obs, reward, done, _, _ = self.env.run_auction_step(bid, action, bid_price)  # truncated (bool) and info (dict) are ignored
             transition = (obs, action, reward, done, new_obs)
             self.replay_buffer.append(transition)
             obs = new_obs
@@ -123,7 +123,7 @@ class DQNAgent:
                 bid_price = torch.clamp(self.price_net(), 0, current_state["Remaining Budget"]).item()
 
             # Take the action and record the transition into the replay buffer
-            new_obs, reward, done, _, _ = self.env.step(action, bid, bid_price)  # truncated (bool) and info (dict) are ignored
+            new_obs, reward, done, _, _ = self.env.run_auction_step(bid, action, bid_price)  # truncated (bool) and info (dict) are ignored
             transition = (obs, action, reward, done, new_obs)
             self.replay_buffer.append(transition)
             obs = new_obs

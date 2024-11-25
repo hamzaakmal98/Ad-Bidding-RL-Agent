@@ -208,3 +208,28 @@ class AuctionSimulator:
             "Win Rate": win_rate,
             "Cumulative Rewards so far":rewards.aggregate_rewards(self.reward_list)
         }
+
+
+    def reset(self):
+        """
+        Contributor: Weijia
+
+        Resets the auction.
+        """
+        self.remaining_budget = self.initial_budget
+        self.num_wins = 0
+        self.total_auctions = 0
+        self.done = False
+        self.reward_list=[]
+
+
+    def get_observation_space(self):
+        """
+        Contributor: Weijia
+
+        Returns the observation space of the environment, including a list of 0s and 1s 
+        to indicate which keywords are currently available for bidding, and
+        the current budget.
+        """
+
+        return 
