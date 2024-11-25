@@ -68,7 +68,7 @@ class DQNAgent:
         self.optimizerDQN = torch.optim.Adam(self.online_net.parameters(), lr=learning_rate)
 
         ## Use another neural network to determine the bidding price
-        self.price_net = BidPriceNet()  # the model determining a price to bid in order to win the auction
+        self.price_net = BidPriceNet(env)  # the model determining a price to bid in order to win the auction
         self.optimizerPrice = torch.optim.Adam(self.price_net.parameters(), lr=learning_rate)
 
     def calculate_bid(self, pctr):
@@ -196,11 +196,11 @@ class DQN(nn.Module):
     def __init__(self, env):
         super().__init__()
 
-        in_features = int(np.prod(env.observation_space.shape))
+        in_features = int(np.prod(env.get_observation_space_dim()))
         self.layers = nn.Sequential(
             nn.Linear(in_features, 64),
             nn.Tanh(),
-            nn.Linear(64, env.action_space.n),
+            nn.Linear(64, env.get_action_space_dim()),
         )
     
     def forward(self, x):
@@ -221,7 +221,7 @@ class BidPriceNet(nn.Module):
     def __init__(self, env):
         super(BidPriceNet, self).__init__()
 
-        in_features = int(np.prod(env.observation_space.shape))
+        in_features = int(np.prod(env.get_action_space_dim()))
         self.net = nn.Sequential(
             nn.Linear(in_features, 128),
             nn.ReLU(),

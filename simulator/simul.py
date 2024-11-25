@@ -244,5 +244,26 @@ class AuctionSimulator:
         to indicate which keywords are currently available for bidding, and
         the current budget.
         """
+        available_keywords_set = set(env.available_keywords())
+        available_keywords_binary = [1 if keyword in available_keywords_set else 0 for keyword in env.KEYWORDS]
+        return available_keywords_binary + [self.remaining_budget]
+    
 
-        return 
+    def get_observation_space_dim(self):
+        """
+        Contributor: Weijia
+
+        Returns the dimensionality of the observation space of the environment.
+        Note: the return value must be consistent with the return value from the get_observation_space() method.
+        """
+        return len(env.KEYWORDS) + 1
+    
+
+    def get_action_space_dim(self):
+        """
+        Contributor: Weijia
+
+        Returns the dimensionality of the action space of the environment.
+        """
+        return len(env.KEYWORDS) + 1    # The agent can choose to either bid for any one of the keyword or not bid at all
+    
