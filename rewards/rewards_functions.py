@@ -52,7 +52,7 @@ def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_au
     won_boolean = variables_dict["win"]
 
     # - non priority keywords marked with 0, priority keywords marked with int>0
-    priority_keyword = keyword_rank == 0
+    priority_keyword = keyword_rank != 0 # True if keyword is one of the 3 priority keywords, False otherwise
 
     keyword_importance = 10 # set baseline non priority kw value
     if priority_keyword == True:
