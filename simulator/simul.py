@@ -1,16 +1,3 @@
-"""
-Contributor: Hamza
-
-This module simulates a second-price auction environment for ad bidding.
-The agent bids based on the predicted Click-Through Rate (pCTR) and a predefined value per click.
-The simulation includes:
-1. Generating impressions with attributes like keywords, page content, user profile, and pCTR.
-2. Collecting bids from competitors and the agent.
-3. Running a second-price auction to determine winners.
-4. Tracking the agent's performance metrics like budget, number of wins, and win rate.
-"""
-
-
 import environment.env as env
 import rewards.rewards_functions as rewards
 from environment.env import KEYWORDS
@@ -19,7 +6,7 @@ env.setup()
 
 class AuctionSimulator:
     """
-    Contributor: Hamza
+    
 
     This class implements the simulation of a second-price auction environment.
     It manages budget tracking, impression generation, bidding logic, and performance metrics.
@@ -46,7 +33,7 @@ class AuctionSimulator:
         
     def prompt_keywords(self):
         """
-        Contributor: Hamza
+        
 
         Prompt the user to enter three desired keywords to track in the auction environment.
         These keywords are stored in a list and used for impression generation.
@@ -59,7 +46,7 @@ class AuctionSimulator:
     
     def win_update_budget(self, remaining_budget, bid):
         """
-        Contributor: Hamza
+        
 
         Update the agent's remaining budget after each auction.
 
@@ -71,7 +58,7 @@ class AuctionSimulator:
     
     def win_count_update(self):
         """
-        Contributor: Hamza
+        
 
         Update the agent's win count after each auction.
 
@@ -82,7 +69,7 @@ class AuctionSimulator:
 
     def total_auctions_update(self):
         """
-        Contributor: Hamza
+        
 
         Update the total number of auctions after each auction.
         """
@@ -104,18 +91,8 @@ class AuctionSimulator:
         else:
             return 0
     
-    def is_terminal(self,max_rounds=1000, budget_lower_limit=50):
-        """
-        Checks if the agent has exhausted its budget or reached max number of allowed auction rounds.
-
-        :params max_rounds: int
-            max rounds at which we should end the episode even if budget limit not reached
-
-        :params budget_lower_limit: int
-            should end the episode when the budget has reached this value
-
-        :return: boolean - True if the agent has no budget or completed all auctions, False otherwise.
-        """
+    def is_terminal(self, max_rounds=1000, budget_lower_limit=50):
+        # Fixed comparison error; `self.remaining_budget` is an int and works directly with >=.
         done = self.remaining_budget <= budget_lower_limit or self.total_auctions >= max_rounds
         return done
 
@@ -124,7 +101,7 @@ class AuctionSimulator:
         return env.KEYWORDS
 
     def get_current_available_keywords(self):
-        return env.available_keywords()
+        return env.available_keywords
     
 
     def run_auction_step(self, bid_bool, keyword, bid_amount):
@@ -150,7 +127,7 @@ class AuctionSimulator:
 
         """
 
-        done = self.is_terminal(self)
+        done = self.is_terminal()
 
 
 
@@ -221,3 +198,15 @@ class AuctionSimulator:
             "Win Rate": win_rate,
             "Cumulative Rewards so far":rewards.aggregate_rewards(self.reward_list)
         }
+
+    def reset(self):
+        """
+        Resets the simulator state to its initial configuration.
+        This includes resetting the budget, wins, auction counts, and rewards list.
+        """
+        self.remaining_budget = self.initial_budget
+        self.num_wins = 0  
+        self.total_auctions = 0  
+        self.reward_list = []  
+        self.done = False  
+
