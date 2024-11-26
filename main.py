@@ -3,126 +3,96 @@ from logger import Logger
 from environment.env import setup
 from simulator.simul import AuctionSimulator
 from QAgent.QAgent import QAgent
-from rewards_functions import calculate_reward, aggregate_rewards
-
 
 class Main:
     def __init__(self, config_path: str = "config.yaml"):
         """Initialize main class with config and logger."""
         self.config = ConfigLoader(config_path)
         self.logger = Logger()
-
-        # Initialize environment, agent, and simulator with config
-        self.env = self.setup_environment()
-        self.simulator = self.setup_simulator()
-        self.agent = self.setup_agent()
-
-    def setup_environment(self):
-        """Initialize environment with config."""
-        env_config = self.config.get_env_config()
-        setup()  # Initialize global parameters
-        return env_config
-
-    def setup_simulator(self):
-        """Initialize auction simulator with config."""
+        
+        # Set up environment first
+        setup()
+        
+        # Initialize simulator
         sim_config = self.config.get_simulator_config()
-        return AuctionSimulator(
-            num_competitors=sim_config['num_competitors'],
+        self.simulator = AuctionSimulator(
             initial_budget=sim_config['initial_budget'],
-            value_per_click=sim_config['value_per_click'],
-            bid_distribution=sim_config['bid_distribution'],
-            mean=sim_config['mean_bid'],
-            stddev=sim_config['std_dev']
+            keyword_list=sim_config['priority_keywords']
         )
-
-    def setup_agent(self):
-        """Initialize Q-learning agent with config."""
+        
+        # Get priority keywords from user
+        self.simulator.prompt_keywords()
+        
+        # Initialize agent
         agent_config = self.config.get_agent_config()
-        return QAgent(
-            env=self.env,
-            learning_rate=agent_config['learning_rate'],
-            discount_factor=agent_config['discount_factor'],
+        self.agent = QAgent(
+            priority_keywords=self.simulator.desired_keywords,  # Use keywords from simulator
+            num_actions=agent_config['num_actions'],
+            alpha=agent_config['alpha'],
+            gamma=agent_config['gamma'],
             epsilon=agent_config['epsilon'],
-            decay_rate=agent_config['decay_rate'],
-            value_per_click=agent_config['value_per_click']
+            epsilon_decay=agent_config['epsilon_decay'],
+            epsilon_min=agent_config['epsilon_min']
         )
-
+    
     def train(self, num_episodes: int):
         """Train the agent for specified number of episodes."""
         self.logger.log_info(f"Starting training for {num_episodes} episodes")
-
+        
         for episode in range(num_episodes):
-            self.simulator.remaining_budget = self.simulator.initial_budget
-            episode_metrics = []
-            episode_rewards = []
-
-            while self.simulator.remaining_budget > 0:
-                # Generate impression
-                impression = self.simulator.generate_impression()
-                state = (
-                    impression['keyword'],
-                    self.simulator.remaining_budget,
-                    impression['pCTR']
-                )
-
-                # Get agent's action
-                bid_amount = self.agent.select_action(state)
-
-                # Run auction
-                result = self.simulator.run_auction(impression['pCTR'])
-
-                # Create state object for reward calculation
-                reward_state = {
-                    'bid_placed': bid_amount,
-                    'bid_cost': result['cost'],
-                    'budget_left': self.simulator.remaining_budget,
-                    'keyword_importance': impression['pCTR'] * 100,  # Scale pCTR to importance
-                    'priority_keyword': impression['keyword'] in self.simulator.desired_keywords
-                }
-
-                # Calculate reward using teammate's function
-                reward = calculate_reward(
-                    state=reward_state,
-                    max_budget_consumption_per_auction=0.25,
-                    stop_penalty_percent=0.1,
-                    stop_penalty_decay=0.5
-                )
-
-                episode_rewards.append(reward)
-
-                # Update agent
-                next_state = (
-                    impression['keyword'],
-                    self.simulator.remaining_budget,
-                    impression['pCTR']
-                )
-                self.agent.update_q_value(state, bid_amount, reward, next_state)
-
-                episode_metrics.append({
-                    'win_rate': self.simulator.get_metrics()['Win Rate'],
-                    'remaining_budget': self.simulator.remaining_budget,
-                    'wins': self.simulator.num_wins,
-                    'bid_amount': bid_amount,
-                    'reward': reward
-                })
-
-            # Log episode metrics
-            avg_metrics = {
-                'win_rate': sum(m['win_rate'] for m in episode_metrics) / len(episode_metrics),
-                'remaining_budget': episode_metrics[-1]['remaining_budget'],
-                'wins': episode_metrics[-1]['wins'],
-                'avg_bid': sum(m['bid_amount'] for m in episode_metrics) / len(episode_metrics),
-                'total_reward': aggregate_rewards(episode_rewards)
-            }
-            self.logger.log_metrics(episode, avg_metrics)
-
+            self.simulator.reset()
+            
+            while not self.simulator.is_terminal():
+                # Get available keywords for this round
+                available_keywords = self.simulator.get_current_available_keywords()
+                
+                for keyword in available_keywords:
+                    # Create state tuple
+                    current_metrics = self.simulator.get_metrics()
+                    state = (
+                        keyword,
+                        current_metrics["Remaining Budget"],
+                        keyword in self.simulator.desired_keywords
+                    )
+                    
+                    # Get action and bid
+                    action_idx = self.agent.choose_action(state)
+                    bid_amount = self.agent.calculate_bid(keyword, action_idx)
+                    
+                    # Make bid
+                    sim_result, reward = self.simulator.run_auction_step(
+                        bid_bool=True,
+                        keyword=keyword,
+                        bid_amount=bid_amount
+                    )
+                    
+                    # Create next state
+                    next_metrics = self.simulator.get_metrics()
+                    next_state = (
+                        keyword,
+                        next_metrics["Remaining Budget"],
+                        keyword in self.simulator.desired_keywords
+                    )
+                    
+                    # Update agent
+                    self.agent.update_q_table(state, action_idx, reward, next_state)
+            
+            # Decay exploration rate
+            self.agent.decay_epsilon()
+            
+            # Log episode results
+            final_metrics = self.simulator.get_metrics()
+            self.logger.log_metrics(episode, final_metrics)
+            
             if (episode + 1) % 100 == 0:
                 self.logger.log_info(
-                    f"Episode {episode + 1}: Win Rate = {avg_metrics['win_rate']:.4f}, "
-                    f"Remaining Budget = {avg_metrics['remaining_budget']:.2f}, "
-                    f"Total Reward = {avg_metrics['total_reward']:.2f}"
+                    f"Episode {episode + 1}: "
+                    f"Win Rate = {final_metrics['Win Rate']:.4f}, "
+                    f"Remaining Budget = {final_metrics['Remaining Budget']:.2f}, "
+                    f"Total Wins = {final_metrics['Wins']}, "
+                    f"Total Auctions = {final_metrics['Total Auctions']}, "
+                    f"Total Rewards = {final_metrics['Cumulative Rewards so far']:.2f}"
                 )
-
 
 if __name__ == "__main__":
     main = Main()
