@@ -1,7 +1,7 @@
 import numpy as np
 import random
 class QAgent:
-    def __init__(self, priority_keywords, num_actions, alpha=0.1, gamma=0.9, epsilon=1.0, epsilon_decay=0.99, epsilon_min=0.01):
+    def __init__(self, priority_keywords, num_actions, alpha=0.1, gamma=0.9, epsilon=1.0, epsilon_decay=0.999999):
         """
         Initialize the agent with Q-table, priority keywords, and learning parameters.
 
@@ -20,13 +20,13 @@ class QAgent:
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
-        self.epsilon_min = epsilon_min
 
         # Q-table: shape = (state space size, num_actions)
         self.q_table = {}
 
-        self.bids = {keyword: 35.0 for keyword in priority_keywords}
-        self.actions = [-10, -5, 0, 5, 10] 
+        self.bids = {keyword: 50.0 for keyword in priority_keywords}
+
+        self.actions = [-40, -25, 0, 25, 40] 
 
     def choose_action(self, state):
         """
@@ -62,11 +62,11 @@ class QAgent:
         best_future_q = np.max(self.q_table[next_state])
         current_q = self.q_table[current_state][action_idx]
 
-        self.q_table[current_state][action_idx] = current_q + self.alpha * (reward + self.gamma * best_future_q - current_q)
+        self.q_table[current_state][action_idx] = current_q + self.alpha * (reward + self.gamma * (best_future_q - current_q))
 
     def decay_epsilon(self):
         """Decay the exploration rate."""
-        self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
+        self.epsilon = self.epsilon * self.epsilon_decay
 
     def calculate_bid(self, keyword, action_idx):
         """
