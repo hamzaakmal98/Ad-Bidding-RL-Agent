@@ -92,38 +92,37 @@ def step(bid_bool, keyword = None, bid_amount = 0):
     Simulate a single step in bidding environment
     
     Parameters:
-    - bid_bool (bool)   :  wheter to place bid in this cycle.
+    - bid_bool (bool)   :  whether to place bid in this cycle.
     - keyword (str)     :  the keyword to bid on if placing a bid
     - bid_amount(float) :  the bid amount placed by the player.
     
     Returns:
-    - bid_reult_bool (bool)     : True is the bid was won, False otherwise
-    - sec_highest_bid (float)   : if won, return second highest bid
+    - bid_result_bool (bool)     : True if the bid has won, False otherwise
+    - competitor_bid (float)   : if a bid is placed, return the simulated bid from the highest-bid competitor
     
     '''
     
     global available_keywords
     
     bid_result_bool = False
-    sec_highest_bid = 0.0
+    competitor_bid = 0.0
     
     if not bid_bool:
         # if not bidding in this cycle
         # reset the available keywords
         available_keywords = generate_available_keywords()
-        return bid_result_bool, sec_highest_bid
+        return bid_result_bool, competitor_bid
     
     if keyword not in available_keywords:
         raise ValueError(f"Keyword {keyword} is not available")
-        return bid_result_bool, sec_highest_bid
     
-    sec_highest_bid = generate_current_cost(keyword) 
+    competitor_bid = generate_current_cost(keyword) 
     
-    if bid_amount > sec_highest_bid:
+    if bid_amount > competitor_bid:
         bid_result_bool = True
     
     available_keywords = generate_available_keywords()
-    return bid_result_bool, sec_highest_bid
+    return bid_result_bool, competitor_bid
         
     
    

@@ -1,3 +1,15 @@
+"""
+Contributor: Hamza, Weijia
+
+This module simulates a second-price auction environment for ad bidding.
+The simulation includes:
+1. Generating impressions with attributes like keywords, page content, user profile, and pCTR.
+2. Collecting bids from competitors and the agent.
+3. Running a second-price auction to determine winners.
+4. Tracking the agent's performance metrics like budget, number of wins, and win rate.
+"""
+
+
 import environment.env as env
 import rewards.rewards_functions as rewards
 from environment.env import KEYWORDS
@@ -6,21 +18,17 @@ env.setup()
 
 class AuctionSimulator:
     """
-    
-
     This class implements the simulation of a second-price auction environment.
     It manages budget tracking, impression generation, bidding logic, and performance metrics.
     """
 
-    def __init__(self, initial_budget, keyword_list):
+    def __init__(self, initial_budget, keyword_list, max_rounds=1000, budget_lower_limit=50):
         """
         Initialize the auction simulator episode with initial budget and 3 desired priority keywords.
 
         Parameters:
             initial_budget - constant defined by user,
             keyword_list - list of 3 user-defined priority keywords
-
-
         """
    
         self.initial_budget = initial_budget
@@ -30,11 +38,11 @@ class AuctionSimulator:
         self.desired_keywords = keyword_list  # User-defined keywords for tracking.
         self.done = False
         self.reward_list=[]
+        self.max_rounds = max_rounds
+        self.budget_lower_limit = budget_lower_limit
         
     def prompt_keywords(self):
         """
-        
-
         Prompt the user to enter three desired keywords to track in the auction environment.
         These keywords are stored in a list and used for impression generation.
         """
@@ -43,41 +51,22 @@ class AuctionSimulator:
             keyword = input(f"Keyword {i + 1}: ").strip()
             self.desired_keywords.append(keyword)
         print(f"Tracked Keywords: {self.desired_keywords}")
-    
-    def win_update_budget(self, remaining_budget, bid):
-        """
-        
 
-        Update the agent's remaining budget after each auction.
+    
+    def win_update(self, bid):
+        """
+        Update the agent's win count and remaining budget after each auction won.
 
         Parameters:
-        - remaining_budget (float): The agent's remaining budget.
         - bid (float): The bid amount for the current auction.
         """
-        self.remaining_budget = remaining_budget - bid
-    
-    def win_count_update(self):
-        """
-        
-
-        Update the agent's win count after each auction.
-
-        Parameters:
-        - win_count (int): The number of auctions won by the agent.
-        """
         self.num_wins += 1
+        self.remaining_budget -=  bid
 
-    def total_auctions_update(self):
-        """
-        
-
-        Update the total number of auctions after each auction.
-        """
-        self.total_auctions += 1
 
     def get_rank(self, keyword):
         """
-       Get the rank of a keyword in the list of desired keywords - used in reward calculation
+        Get the rank of a keyword in the list of desired keywords - used in reward calculation
 
         :param keyword: str
             keyword agent chose. note: keyword is None if agent doesn't bid
@@ -91,13 +80,22 @@ class AuctionSimulator:
         else:
             return 0
     
-    def is_terminal(self, max_rounds=1000, budget_lower_limit=50):
-        # Fixed comparison error; `self.remaining_budget` is an int and works directly with >=.
-        done = self.remaining_budget <= budget_lower_limit or self.total_auctions >= max_rounds
-        return done
+    def is_terminal(self):
+        """
+        Checks if the agent has exhausted its budget or reached max number of allowed auction rounds.
+
+        :params max_rounds: int
+            max rounds at which we should end the episode even if budget limit not reached
+
+        :params budget_lower_limit: int
+            should end the episode when the budget has reached this value
+
+        :return: boolean - True if the agent has no budget or completed all auctions, False otherwise.
+        """
+        return self.remaining_budget <= self.budget_lower_limit or self.total_auctions >= self.max_rounds
 
 
-    def get_all_possible_keywords_in_env(self):
+    def get_all_ad_keywords(self):
         return env.KEYWORDS
 
     def get_current_available_keywords(self):
@@ -117,71 +115,59 @@ class AuctionSimulator:
         :param bid_amount: float or int
             how much the agent bids on the chosen keyword
 
-        :return: dictionary and float
-        - (1) dictionary: {"win": boolean that is true when , "cost": cost of bid, "margin": bid_amount - cost,
-                "remaining_budget": amount of budget left after bid was made,
-                "rank": keyword ranking (lower rank = lower priority kw (ex: if 3 keywords, rank 3 = highest priority),
-                 "bid_amount": how much the agent had bid, "done": boolean that is true if termination is reached,
-                 "total_auctions": how many auctions have been run so far including this most recent one}
-        - (2) reward value (float)
-
+        :return: 
+        - (1) observation: a list of numbers that includes informations of current state, including 
+                           what keywords out of all keywords are currently available to bid for,
+                           and the current budget left
+        - (2) reward: the reward resulted from this step
+        - (3) done: whether the budget ran out and the user can't bid anymore
+        - (4) info_dict: {
+                "win": whether the user have won the current auction, 
+                "cost": cost that the user need to pay (if won, this would be the second highest bid price, if lost, then 0), 
+                "margin": the bid price that the user placed - cost,
+                "highest_competitor_bid": the highest competitor bid, will be 0 if the user choose to not to bid 
+                "remaining_budget": the amount of budget left after the bid was made,
+                "rank": keyword ranking, lower rank means the keyword has a lower priority (ex: if 3 keywords, rank 3 = highest priority),
+                "bid_amount": the bid price that the user placed, 
+                "total_auctions": how many auctions have been run so far including this most recent one}
         """
-
-        done = self.is_terminal()
-
-
-
         # check if we reached a terminal state
-        if not done:
+        if not self.done:
+            bid_result, highest_competitor_bid = env.step(bid_bool, keyword, bid_amount)
 
             # case where agent places a bid
             if bid_bool:
-                bid_result, cost = env.step(bid_bool, keyword, bid_amount)
+                
+                # case where agent won the current bid
+                if bid_result:
+                    self.win_update(bid_amount)
+                    amount_to_pay = highest_competitor_bid
 
-                # case where agent won after placing bid
-                if bid_result == True:
-
-                    self.win_count_update()
-                    self.win_update_budget(self.remaining_budget, bid_amount)
-                    self.total_auctions_update()
-
-                    simulator_dict = {"win": True, "cost": cost, "margin": bid_amount - cost,
-                                      "remaining_budget": self.remaining_budget, "rank": self.get_rank(keyword) ,
-                                      "bid_amount": bid_amount, "done": done,"total_auctions":self.total_auctions }
-
-                    return simulator_dict, rewards.calculate_reward(simulator_dict,self.initial_budget)
-
-                # case where agent lost after placing bid
+                # case where agent lost the current bid
                 else:
+                    amount_to_pay = 0   # If a bid is lost, the user does not need to pay anything
 
-                    self.total_auctions_update()
-
-                    simulator_dict =  {"win": False, "cost": None, "margin": bid_amount - cost,
-                                       "remaining_budget": self.remaining_budget, "rank": self.get_rank(keyword),
-                                       "bid_amount": bid_amount, "done": done,"total_auctions":self.total_auctions}
-
-                    this_reward = rewards.calculate_reward(simulator_dict,self.initial_budget)
-                    self.reward_list.append(this_reward)
-
-                    return simulator_dict, this_reward
+                margin = bid_amount - highest_competitor_bid
 
             # case where agent does NOT place a bid
             # note: this is still an action, so still need to update num auctions and return values
             else:
+                amount_to_pay = 0
+                margin = 0
+                bid_amount = 0
 
-                bid_result, cost = env.step(bid_bool) # this will always be the following: bid_result = False, and cost  = 0.0
-                self.total_auctions_update()
+            observation = self.get_observation_space()
+            info_dict = {"win": bid_result, "cost": amount_to_pay, "margin": margin, "highest_competitor_bid": highest_competitor_bid,
+                         "remaining_budget": self.remaining_budget, "rank": self.get_rank(keyword),
+                         "bid_amount": bid_amount, "total_auctions": self.total_auctions}
+            reward = rewards.calculate_reward(info_dict, self.initial_budget)
+            self.reward_list.append(reward)
+            self.total_auctions += 1
+            self.done = self.is_terminal()
+            
 
-                simulator_dict = {"win": False, "cost": cost, "margin": 0 - cost,
-                                  "remaining_budget": self.remaining_budget, "rank": self.get_rank(keyword),
-                                  "bid_amount": 0, "done": done, "total_auctions": self.total_auctions}
+            return observation, reward, self.done, info_dict
 
-                this_reward = rewards.calculate_reward(simulator_dict, self.initial_budget)
-                self.reward_list.append(this_reward)
-
-                return simulator_dict, this_reward
-
-        
 
     def get_metrics(self):
 
@@ -199,14 +185,47 @@ class AuctionSimulator:
             "Cumulative Rewards so far":rewards.aggregate_rewards(self.reward_list)
         }
 
+
     def reset(self):
         """
-        Resets the simulator state to its initial configuration.
-        This includes resetting the budget, wins, auction counts, and rewards list.
+        Resets the auction and returns the current simulator observation and a dictionary of additional informations.
         """
         self.remaining_budget = self.initial_budget
-        self.num_wins = 0  
-        self.total_auctions = 0  
-        self.reward_list = []  
-        self.done = False  
+        self.num_wins = 0
+        self.total_auctions = 0
+        self.done = False
+        self.reward_list=[]
 
+        observation = self.get_observation_space()
+        info_dict =  {"win": False, "cost": None, "margin": 0,
+                      "remaining_budget": self.remaining_budget, 
+                      "total_auctions": self.total_auctions}
+
+        return observation, info_dict
+
+
+    def get_observation_space(self):
+        """
+        Returns the observation space of the environment, including a list of 0s and 1s 
+        to indicate which keywords are currently available for bidding, and
+        the current budget.
+        """
+        available_keywords_set = set(env.available_keywords)
+        available_keywords_binary = [1 if keyword in available_keywords_set else 0 for keyword in env.KEYWORDS]
+        return available_keywords_binary + [self.remaining_budget]
+    
+
+    def get_observation_space_dim(self):
+        """
+        Returns the dimensionality of the observation space of the environment.
+        Note: the return value must be consistent with the return value from the get_observation_space() method.
+        """
+        return len(env.KEYWORDS) + 1
+    
+
+    def get_action_space_dim(self):
+        """
+        Returns the dimensionality of the action space of the environment.
+        """
+        return len(env.KEYWORDS) + 1    # The agent can choose to either bid for any one of the keyword or not bid at all
+    
