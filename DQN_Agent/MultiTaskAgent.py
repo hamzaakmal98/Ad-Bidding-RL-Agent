@@ -45,6 +45,7 @@ class DQNAgent:
         self.gamma = gamma
         self.train_batch_size = train_batch_size
         self.min_replay_size = min_replay_size
+        self.reward_buffer_size = reward_buffer_size
         self.epsilon_start = epsilon_start
         self.epsilon_end = epsilon_end
         self.epsilon = epsilon_start
@@ -73,19 +74,27 @@ class DQNAgent:
     def select_action(self, obs):
         '''Select an action using the Online Net to maximize the future reward.'''
         action, bid_price = self.online_net.act(obs)
-        bid = action != 0 and action in env.get_current_available_keywords()
-        return bid, action, bid_price
+        bid = action != 0 and self.index_to_keyword(action) in self.env.get_current_available_keywords()
+        return bid, action, bid_price.item()
         
+
     def random_action(self, budget):
         '''Select a random action in the action space.'''
         keyword_selection = random.randint(0, self.env.get_action_space_dim() - 1)
         # When the keyword index selected is the dummy 0, it means the agent doesn't participate in this round of auction
-        bid = keyword_selection != 0 and keyword_selection in env.get_current_available_keywords()
-        bid_price = random.randint(1, budget)   
+        bid = keyword_selection != 0 and self.index_to_keyword(keyword_selection) in self.env.get_current_available_keywords()
+        bid_price = random.randint(1, int(budget))   
         return bid, keyword_selection, bid_price
     
 
-    def train(self, num_episodes=10000):
+    def index_to_keyword(self, index):
+        ''' Translates an index output from the DQN to the corresponding keyword.
+            If the index is 0, it represents no keyword is selected.
+        '''
+        return env.get_all_ad_keywords()[index - 1] if index > 0 else None
+
+
+    def train(self, num_episodes=260):
         num_episodes_done = 0
 
         ### Initialize the replay buffer
@@ -93,7 +102,7 @@ class DQNAgent:
         # Partially fill the replay buffer with observations from completely random actions for exploration of the environment
         for _ in range(self.min_replay_size):
             bid, action, bid_price = self.random_action(info["remaining_budget"])
-            keyword = env.get_all_ad_keywords()[action] if bid else None
+            keyword = self.index_to_keyword(action)
             new_obs, reward, done, info = self.env.run_auction_step(bid, keyword, bid_price) 
             transition = (obs, action, reward, info["highest_competitor_bid"], done, new_obs)
             self.replay_buffer.append(transition)
@@ -116,13 +125,17 @@ class DQNAgent:
             else:
                 bid, action, bid_price = self.select_action(obs)    # Take a greedy action to maximize the future reward
 
+            # print("Decides to", "bid" if bid else "not bid")
+            # print("Current available keywords:", self.env.get_current_available_keywords(), 'Selected:', env.get_all_ad_keywords()[action - 1] if action != 0 else None)
+
             # Take the action and record the transition into the replay buffer
-            keyword = env.get_all_ad_keywords()[action] if bid else None
+            keyword = self.index_to_keyword(action)
             new_obs, reward, done, info = self.env.run_auction_step(bid, keyword, bid_price) 
             transition = (obs, action, reward, info["highest_competitor_bid"], done, new_obs)
             self.replay_buffer.append(transition)
             obs = new_obs
             episode_reward += reward
+            # print(f"Bid for index {action} : {keyword} at price {bid_price} and", "won" if info["win"] else "lost")
 
             # Record the total reward earned and reset for the next episode
             if done:
@@ -183,8 +196,8 @@ class DQNAgent:
 
             ### Logging
             if step % self.logging_frequency == 0:
-                print('Step ', step)
-                print('Average reward : ', np.mean(self.reward_buffer))
+                print(f'Step {step} - Episode {num_episodes_done}')
+                print(f'Average reward of past {len(self.reward_buffer)} episodes : {np.mean(self.reward_buffer)}')
         
 
 class DeepQBidNet(nn.Module):
@@ -214,7 +227,8 @@ class DeepQBidNet(nn.Module):
         q_values, bid_price = self(obs_tensor.unsqueeze(0)) # add in batch dimension, then forward pass
         max_q_index = torch.argmax(q_values, dim=1)
         action = max_q_index.detach().item()
-
+        # print('q_values', q_values)
+        # print('action', action)
         return action, bid_price
     
 
