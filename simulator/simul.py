@@ -75,7 +75,7 @@ class AuctionSimulator:
                 note: returns 0 if keyword not in desired keywords list, otherwise returns int>0
         """
 
-        if keyword:
+        if keyword in self.desired_keywords:
             return self.desired_keywords.index(keyword) + 1   
         else:
             return 0
@@ -164,7 +164,6 @@ class AuctionSimulator:
             self.reward_list.append(reward)
             self.total_auctions += 1
             self.done = self.is_terminal()
-            
 
             return observation, reward, self.done, info_dict
 
