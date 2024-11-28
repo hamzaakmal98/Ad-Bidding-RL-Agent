@@ -1,22 +1,12 @@
 agent:
-  learning_rate: 0.1
-  discount_factor: 0.95
-  epsilon: 1.0
-  decay_rate: 0.995
-  value_per_click: 10.0
-
-environment:
-  gui_mode: false
+  alpha: 0.1  # learning rate
+  gamma: 0.9  # discount factor
+  epsilon: 1.0  # initial exploration rate
+  epsilon_decay: 0.99
+  epsilon_min: 0.01
+  num_actions: 5  # corresponds to [-10, -5, 0, 5, 10]
 
 simulator:
-  num_competitors: 5
-  initial_budget: 1000.0
-  value_per_click: 10.0
-  bid_distribution: 'normal'
-  mean_bid: 50.0
-  std_dev: 10.0
-
-rewards:
-  max_budget_consumption_per_auction: 0.25
-  stop_penalty_percent: 0.1
-  stop_penalty_decay: 0.5
+  initial_budget: 1000
+  # Note: priority_keywords will be prompted from user, this is just default
+  priority_keywords: ['A', 'B', 'C']

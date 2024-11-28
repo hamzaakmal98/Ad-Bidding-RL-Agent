@@ -2,7 +2,6 @@
 Contributor: Hamza, Weijia
 
 This module simulates a second-price auction environment for ad bidding.
-The agent bids based on the predicted Click-Through Rate (pCTR) and a predefined value per click.
 The simulation includes:
 1. Generating impressions with attributes like keywords, page content, user profile, and pCTR.
 2. Collecting bids from competitors and the agent.
@@ -19,8 +18,6 @@ env.setup()
 
 class AuctionSimulator:
     """
-    Contributor: Hamza, Weijia
-
     This class implements the simulation of a second-price auction environment.
     It manages budget tracking, impression generation, bidding logic, and performance metrics.
     """
@@ -32,8 +29,6 @@ class AuctionSimulator:
         Parameters:
             initial_budget - constant defined by user,
             keyword_list - list of 3 user-defined priority keywords
-
-
         """
    
         self.initial_budget = initial_budget
@@ -48,8 +43,6 @@ class AuctionSimulator:
         
     def prompt_keywords(self):
         """
-        Contributor: Hamza
-
         Prompt the user to enter three desired keywords to track in the auction environment.
         These keywords are stored in a list and used for impression generation.
         """
@@ -62,8 +55,6 @@ class AuctionSimulator:
     
     def win_update(self, bid):
         """
-        Contributor: Hamza, Weijia
-
         Update the agent's win count and remaining budget after each auction won.
 
         Parameters:
@@ -113,8 +104,6 @@ class AuctionSimulator:
 
     def run_auction_step(self, bid_bool, keyword, bid_amount):
         """
-        Contributor: Hamza, Weijia
-
         Runs a single bid opportunity - acts as simulator step function.
 
         :param bid_bool: boolean
@@ -179,7 +168,6 @@ class AuctionSimulator:
 
             return observation, reward, self.done, info_dict
 
-        
 
     def get_metrics(self):
 
@@ -200,8 +188,6 @@ class AuctionSimulator:
 
     def reset(self):
         """
-        Contributor: Weijia
-
         Resets the auction and returns the current simulator observation and a dictionary of additional informations.
         """
         self.remaining_budget = self.initial_budget
@@ -220,8 +206,6 @@ class AuctionSimulator:
 
     def get_observation_space(self):
         """
-        Contributor: Weijia
-
         Returns the observation space of the environment, including a list of 0s and 1s 
         to indicate which keywords are currently available for bidding, and
         the current budget.
@@ -233,8 +217,6 @@ class AuctionSimulator:
 
     def get_observation_space_dim(self):
         """
-        Contributor: Weijia
-
         Returns the dimensionality of the observation space of the environment.
         Note: the return value must be consistent with the return value from the get_observation_space() method.
         """
@@ -243,8 +225,6 @@ class AuctionSimulator:
 
     def get_action_space_dim(self):
         """
-        Contributor: Weijia
-
         Returns the dimensionality of the action space of the environment.
         """
         return len(env.KEYWORDS) + 1    # The agent can choose to either bid for any one of the keyword or not bid at all
