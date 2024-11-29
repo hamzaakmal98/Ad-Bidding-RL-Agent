@@ -102,7 +102,7 @@ class AuctionSimulator:
         return env.available_keywords
     
 
-    def run_auction_step(self, bid_bool, keyword, bid_amount):
+    def run_auction_step(self, bid_bool, keyword, bid_amount, verbose=False):
         """
         Runs a single bid opportunity - acts as simulator step function.
 
@@ -160,7 +160,7 @@ class AuctionSimulator:
             info_dict = {"win": bid_result, "cost": amount_to_pay, "margin": margin, "highest_competitor_bid": highest_competitor_bid,
                          "remaining_budget": self.remaining_budget, "rank": self.get_rank(keyword),
                          "bid_amount": bid_amount, "total_auctions": self.total_auctions}
-            reward = rewards.calculate_reward(info_dict, self.initial_budget)
+            reward = rewards.calculate_reward(info_dict, self.initial_budget, verbose=verbose)
             self.reward_list.append(reward)
             self.total_auctions += 1
             self.done = self.is_terminal()
