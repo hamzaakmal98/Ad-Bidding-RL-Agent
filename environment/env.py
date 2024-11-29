@@ -27,8 +27,8 @@ import pygame
 import random
 
 # For GUI mode Switch
-GUI_FLAG = True         # True : game runs in GUI mode 
-# GUI_FLAG = False        # False: game runs in CLI mode
+# GUI_FLAG = True         # True : game runs in GUI mode 
+GUI_FLAG = False        # False: game runs in CLI mode
 
 
 if GUI_FLAG:
