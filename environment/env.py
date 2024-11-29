@@ -145,14 +145,18 @@ def cli_mode():
         else:
             bid_bool = False
         
-        if bid_bool:
+        if bid_bool:                    # if user wants to BID
+            # Get user input
             keyword = input("Pick a keyword to bid on (or type 'exit' to quit): ").strip().upper()
+            
+            # if user wants to QUIT or EXIT
             if keyword == 'EXIT' or keyword == 'QUIT':
                 break
+            # Other-wise get the keyword to bid on
             if keyword not in get_available_keywords():
                 print("Invalid keyword! Try again.")
                 continue
-                
+            
             # Ask player for a bid
             try:
                 bid = float(input(f"Enter your bid for keyword '{keyword}': "))
@@ -161,13 +165,15 @@ def cli_mode():
             
             # step into the bidding cycle 
             bid_result, sec_bid = step(bid_bool, keyword, bid)
+            
+            # report results
             if bid_result:
                 print("You won the bid!")
                 print(f"Second highest Bid was: {sec_bid}")
             else:
                 print("You lost the bid.")
                  
-        else:
+        else:                           # if user does not want to bid -> SKIP
             step(bid_bool)
         
             
