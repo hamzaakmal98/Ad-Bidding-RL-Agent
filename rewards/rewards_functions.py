@@ -41,8 +41,6 @@ def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_au
     :return: reward amount
     '''
 
-
-
     original_budget = initial_budget
     bid_placed = variables_dict["bid_amount"]
     bid_cost = variables_dict["cost"]
@@ -55,15 +53,15 @@ def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_au
     priority_keyword = keyword_rank != 0 # True if keyword is one of the 3 priority keywords, False otherwise
 
     keyword_importance = 10 # set baseline non priority kw value
-    if priority_keyword == True:
-        keyword_importance = keyword_importance  * (keyword_rank**2)
+    if priority_keyword:
+        keyword_importance *= (keyword_rank**2)
 
     # no impressions won since agent lost auction or didn't participate in the auction (no bid),
     # so no reward unless it's an auction we don't mind losing
-    if won_boolean == False:
+    if not won_boolean:
 
         # case where it's an auction we don't mind losing
-        if priority_keyword == False: #if not a priorty keyword, then it's okay that we didn't win and we don't want to penalize
+        if not priority_keyword: #if not a priorty keyword, then it's okay that we didn't win and we don't want to penalize
             return keyword_importance # just go ahead and return the reward (skip computation below)
 
         # case where we lost and we aren't happy about it
@@ -79,19 +77,18 @@ def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_au
         # get the maximum amount of budget allowed to have been spent based on budget for this simulation
         budget_consumption_max = max_budget_consumption_per_auction * (budget_left + bid_cost)
 
-
         #penalty will be the percent we reduce the reward by
         penalty = 0
         diff_bid = abs(margin)
 
         # used too much of the budget
         if bid_placed > budget_consumption_max:
-            print(f"You used {bid_placed} which is > {budget_consumption_max} AKA too much of the budget!")
+            # print(f"You used {bid_placed} which is > {budget_consumption_max} AKA too much of the budget!")
             penalty = penalty + 0.2
 
         # overbid by greater than a half of cost - how should/should I parameterize this?
         if bid_placed >= 1.5 * bid_cost:
-            print("You overbid by greater than a 1.5 times the cost!")
+            # print("You overbid by greater than a 1.5 times the cost!")
             penalty = penalty + 0.2
 
         # reduce total penalty amount if little budget left
@@ -102,19 +99,19 @@ def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_au
         # --> for example: if stop_penalty_percent = 0.1, this means when there is <= 10% of the budget left
         #                  we reduce penalty
         if percent_budget_left <= stop_penalty_percent:
-            print(f"Overall penalty would have been: {penalty}, but since <= {stop_penalty_percent} budget left...")
+            # print(f"Overall penalty would have been: {penalty}, but since <= {stop_penalty_percent} budget left...")
             penalty = penalty * stop_penalty_decay
-            print(f"due tp applying the stop penalty decay, overall penalty is {penalty} instead.")
+            # print(f"due tp applying the stop penalty decay, overall penalty is {penalty} instead.")
 
 
         # if no penalty, reward is just the bid impressions (value straight from keyword importance)
-        print(f'Therefore your total penalty percent is: {penalty}')
+        # print(f'Therefore your total penalty percent is: {penalty}')
 
         # note: +1 since diff_bid = 1 when cost and keyword importance are within 1 "dollar" of each other
         # --> we can consider the bid and cost being within margin of 1 an ideal situation so don't want to penalize
         reward = (keyword_importance - diff_bid + 1) - (keyword_importance * penalty)
 
-        print(f'Your final reward is {reward}')
+        # print(f'Your final reward is {reward}')
 
         return reward
 
