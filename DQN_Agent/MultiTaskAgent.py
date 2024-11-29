@@ -26,7 +26,8 @@ class DQNAgent:
                                    which will be used to train the model
         min_replay_size (int) : number of samples resulted from random actions to be filled into the replay buffer
                                 before the actual Q learning process begins
-        reward_buffer_size (int) : size of the reward buffer that contains reward from all episodes done 
+        reward_buffer_size (int) : the number of the most recent episodes whose episode reward will be recorded 
+                                   in the reward buffer which will be used to calculate the average reward earned
         epsilon_start (int) : epsilon value (for epsilon greedy exploration strategy) at the start 
         epsilon_end (int) : epsilon value at the end 
         epsilon_decay_period (int) : number of steps that the epsilon values will decay from the starting value to the ending value
@@ -37,7 +38,7 @@ class DQNAgent:
         logging_frequency (int or None) : frequency of the logging. If None, then no logging will be shown
     '''
     def __init__(self, env: AuctionSimulator, gamma: float = 0.99, train_batch_size: int = 32, 
-                 replay_buffer_size: int = 50000, min_replay_size: int = 1000, reward_buffer_size: int = 100, 
+                 replay_buffer_size: int = 50000, min_replay_size: int = 1000, reward_buffer_size: int = 10, 
                  epsilon_start: float = 1.0, epsilon_end: float = 0.02, epsilon_decay_period: int = 10000,
                  weight_DQN_loss: float = 1.0, weight_price_loss: float = 1.0,
                  target_update_frequency: int = 1000, learning_rate: float = 5e-4, logging_frequency: Optional[int] = 1000):
@@ -130,7 +131,7 @@ class DQNAgent:
 
             # Take the action and record the transition into the replay buffer
             keyword = self.index_to_keyword(action)
-            new_obs, reward, done, info = self.env.run_auction_step(bid, keyword, bid_price) 
+            new_obs, reward, done, info = self.env.run_auction_step(bid, keyword, bid_price, verbose=True) 
             transition = (obs, action, reward, info["highest_competitor_bid"], done, new_obs)
             self.replay_buffer.append(transition)
             obs = new_obs

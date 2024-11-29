@@ -15,7 +15,7 @@
 
 '''
 
-def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_auction = 0.5, stop_penalty_percent = 0.25, stop_penalty_decay = 0.0):
+def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_auction = 0.5, stop_penalty_percent = 0.25, stop_penalty_decay = 0.0, verbose=False):
     '''
     Calculates reward based on auction variables and penalizes for over-consuming budget or overbidding
 
@@ -83,13 +83,15 @@ def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_au
 
         # used too much of the budget
         if bid_placed > budget_consumption_max:
-            # print(f"You used {bid_placed} which is > {budget_consumption_max} AKA too much of the budget!")
-            penalty = penalty + 0.2
+            if verbose:
+                print(f"You used {bid_placed} which is > {budget_consumption_max} AKA too much of the budget!")
+            penalty += 0.2
 
         # overbid by greater than a half of cost - how should/should I parameterize this?
         if bid_placed >= 1.5 * bid_cost:
-            # print("You overbid by greater than a 1.5 times the cost!")
-            penalty = penalty + 0.2
+            if verbose:
+                print("You overbid by greater than 1.5 times the cost!")
+            penalty += 0.2
 
         # reduce total penalty amount if little budget left
         percent_budget_left = budget_left / original_budget
@@ -99,19 +101,23 @@ def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_au
         # --> for example: if stop_penalty_percent = 0.1, this means when there is <= 10% of the budget left
         #                  we reduce penalty
         if percent_budget_left <= stop_penalty_percent:
-            # print(f"Overall penalty would have been: {penalty}, but since <= {stop_penalty_percent} budget left...")
-            penalty = penalty * stop_penalty_decay
-            # print(f"due tp applying the stop penalty decay, overall penalty is {penalty} instead.")
+            if verbose:
+                print(f"Overall penalty would have been: {penalty}, but since <= {stop_penalty_percent} budget left...")
+            penalty *= stop_penalty_decay
+            if verbose:
+                print(f"due to applying the stop penalty decay, overall penalty is {penalty} instead.")
 
 
         # if no penalty, reward is just the bid impressions (value straight from keyword importance)
-        # print(f'Therefore your total penalty percent is: {penalty}')
+        if verbose:
+            print(f'Therefore your total penalty percent is: {penalty}')
 
         # note: +1 since diff_bid = 1 when cost and keyword importance are within 1 "dollar" of each other
         # --> we can consider the bid and cost being within margin of 1 an ideal situation so don't want to penalize
         reward = (keyword_importance - diff_bid + 1) - (keyword_importance * penalty)
 
-        # print(f'Your final reward is {reward}')
+        if verbose:
+            print(f'Your final reward is {reward}')
 
         return reward
 
