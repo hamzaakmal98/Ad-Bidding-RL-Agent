@@ -12,7 +12,6 @@ The simulation includes:
 
 import environment.env as env
 import rewards.rewards_functions as rewards
-from environment.env import KEYWORDS
 
 env.setup()
 
@@ -61,7 +60,7 @@ class AuctionSimulator:
         - bid (float): The bid amount for the current auction.
         """
         self.num_wins += 1
-        self.remaining_budget -=  bid
+        self.remaining_budget -= bid
 
 
     def get_rank(self, keyword):
@@ -133,6 +132,7 @@ class AuctionSimulator:
         """
         # check if we reached a terminal state
         if not self.done:
+            available_keywords = env.get_available_keywords()
             bid_result, highest_competitor_bid = env.step(bid_bool, keyword, bid_amount)
 
             # case where agent places a bid
@@ -157,9 +157,28 @@ class AuctionSimulator:
                 bid_amount = 0
 
             observation = self.get_observation_space()
-            info_dict = {"win": bid_result, "cost": amount_to_pay, "margin": margin, "highest_competitor_bid": highest_competitor_bid,
-                         "remaining_budget": self.remaining_budget, "rank": self.get_rank(keyword),
-                         "bid_amount": bid_amount, "total_auctions": self.total_auctions}
+            info_dict = {
+                "bid": bid_bool,
+                "choosen_keyword_available": keyword in available_keywords,
+                "win": bid_result, 
+                "cost": amount_to_pay, 
+                "margin": margin, 
+                "highest_competitor_bid": highest_competitor_bid,
+                "remaining_budget": self.remaining_budget, 
+                "rank": self.get_rank(keyword),
+                "bid_amount": bid_amount, 
+                "total_auctions": self.total_auctions,
+                # A dict recording if there are other high rank keywords currently available and 
+                # isn't the current chosen keyword. Keys are those unselected high rank keywords and 
+                # values are their corresponding rank
+                "other_high_rank_keywords_available": {     
+                    k:self.get_rank(k) for k in self.desired_keywords if k != keyword and k in available_keywords
+                }
+            }
+            # print('keyword = ', keyword)
+            # print('env.get_available_keywords() = ', available_keywords)
+            # print([k for k in self.desired_keywords if k != keyword and k in available_keywords])
+            # print(info_dict["other_high_rank_keywords_available"])
             reward = rewards.calculate_reward(info_dict, self.initial_budget, verbose=verbose)
             self.reward_list.append(reward)
             self.total_auctions += 1
@@ -181,7 +200,7 @@ class AuctionSimulator:
             "Wins": self.num_wins,
             "Total Auctions": self.total_auctions,
             "Win Rate": win_rate,
-            "Cumulative Rewards so far":rewards.aggregate_rewards(self.reward_list)
+            "Cumulative Rewards so far": rewards.aggregate_rewards(self.reward_list)
         }
 
 
