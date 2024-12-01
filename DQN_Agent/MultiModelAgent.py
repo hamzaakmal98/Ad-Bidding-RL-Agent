@@ -15,7 +15,7 @@ I suspect this implementation might can lead to suboptimal training of the DQN,
 as it might incorrectly associate picking a specific keyword with failure, 
 even when the actual failure was due to an insufficient bid price,
 thus I turned to implement another version of the agent that uses a single multi-task model.
-This version is under construction.
+This version is under construction. Please refer to DQN_Agent/MultiTaskAgent.py instead.
 '''
 
 class DQNAgent:

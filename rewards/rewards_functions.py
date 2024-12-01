@@ -47,25 +47,45 @@ def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_au
     budget_left = variables_dict["remaining_budget"]
     keyword_rank = variables_dict["rank"] # note: lower rank = lower priority kw (ex: if 3 keywords, rank 3 = highest priority)
     margin = variables_dict["margin"]
-    won_boolean = variables_dict["win"]
+    won = variables_dict["win"]
+    bid = variables_dict["bid"]
+    choosen_keyword_available = variables_dict["choosen_keyword_available"]
+    other_high_rank_keywords_available = variables_dict["other_high_rank_keywords_available"]
+    num_other_high_rank_keywords_available = len(other_high_rank_keywords_available)
+
+    keyword_importance = 10 # set baseline non priority kw value
+
+    if not bid:
+        penalty = 0
+        # If the agent chosed a keyword not in the list of available keywords, it will need to be punished
+        if not choosen_keyword_available:
+            penalty += 10
+
+        if num_other_high_rank_keywords_available == 0:
+            # There is no high-ranked keywords available, so it's ok for the agent to not place a bid
+            penalty -= 1
+        else:
+            # There is at least 1 high-ranked keyword available, but the agent choose not to bid 
+            penalty += sum(keyword_importance * value for value in other_high_rank_keywords_available.values())
+            # print("Choose not to bid but there exists high rank keywords:", other_high_rank_keywords_available, "Penalty +=", sum(keyword_importance * (value ** 2) for value in other_high_rank_keywords_available.values()))
+        return -penalty
 
     # - non priority keywords marked with 0, priority keywords marked with int>0
     priority_keyword = keyword_rank != 0 # True if keyword is one of the 3 priority keywords, False otherwise
 
-    keyword_importance = 10 # set baseline non priority kw value
     if priority_keyword:
         keyword_importance *= (keyword_rank**2)
 
     # no impressions won since agent lost auction or didn't participate in the auction (no bid),
     # so no reward unless it's an auction we don't mind losing
-    if not won_boolean:
+    if not won:
+        return -keyword_importance
+        # # case where it's an auction we don't mind losing
+        # if not priority_keyword: #if not a priorty keyword, then it's okay that we didn't win and we don't want to penalize
+        #     return - keyword_importance # just go ahead and return the reward (skip computation below)
 
-        # case where it's an auction we don't mind losing
-        if not priority_keyword: #if not a priorty keyword, then it's okay that we didn't win and we don't want to penalize
-            return keyword_importance # just go ahead and return the reward (skip computation below)
-
-        # case where we lost and we aren't happy about it
-        return 0
+        # # case where we lost and we aren't happy about it
+        # return 0
 
     else:
         # agent won the auction of a keyword we care about

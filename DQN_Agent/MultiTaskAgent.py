@@ -6,6 +6,7 @@ import numpy as np
 import random
 from typing import Optional
 import sys
+import matplotlib.pyplot as plt
 sys.path.append(sys.path[0] + '/../')
 from simulator.simul import AuctionSimulator
 
@@ -35,11 +36,12 @@ class DQNAgent:
         weight_price_loss (float) : weight for the loss of the predicted price in the joint loss calculation
         target_update_frequency (int) : frequency that the target net will be updatedd (by copying over online net's parameters)
         learning_rate (float) : learning rate used to optimized the online net
-        logging_frequency (int or None) : frequency of the logging. If None, then no logging will be shown
+        logging_frequency (int or None) : frequency of the logging during training (by the number of steps). 
+                                          If None, then no logging will be shown
     '''
     def __init__(self, env: AuctionSimulator, gamma: float = 0.99, train_batch_size: int = 32, 
                  replay_buffer_size: int = 50000, min_replay_size: int = 1000, reward_buffer_size: int = 10, 
-                 epsilon_start: float = 1.0, epsilon_end: float = 0.02, epsilon_decay_period: int = 10000,
+                 epsilon_start: float = 1.0, epsilon_end: float = 0.01, epsilon_decay_period: int = 20000,
                  weight_DQN_loss: float = 1.0, weight_price_loss: float = 1.0,
                  target_update_frequency: int = 1000, learning_rate: float = 5e-4, logging_frequency: Optional[int] = 1000):
         self.env = env
@@ -72,11 +74,12 @@ class DQNAgent:
         self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=learning_rate)
 
 
-    def select_action(self, obs):
+    def select_action(self, obs, budget):
         '''Select an action using the Online Net to maximize the future reward.'''
         action, bid_price = self.online_net.act(obs)
         bid = action != 0 and self.index_to_keyword(action) in self.env.get_current_available_keywords()
-        return bid, action, bid_price.item()
+        bid_price = torch.clamp(bid_price, 0, budget).item()
+        return bid, action, bid_price
         
 
     def random_action(self, budget):
@@ -95,8 +98,8 @@ class DQNAgent:
         return env.get_all_ad_keywords()[index - 1] if index > 0 else None
 
 
-    def train(self, num_episodes=260):
-        num_episodes_done = 0
+    def train(self, num_episodes=260, model_save_path: str = None):
+        self.online_net.train()
 
         ### Initialize the replay buffer
         obs, info = self.env.reset()   
@@ -111,42 +114,84 @@ class DQNAgent:
 
             if done:
                 obs, info = self.env.reset() 
-                num_episodes_done += 1
         
         ### Main training loop
         obs, info = self.env.reset()
+        num_episodes_done = 0   
+
+        # For tracking and visualization
         episode_reward = 0
+        num_wins = 0
+        num_bids_placed = 0
+        num_episode_steps = 0
+        episode_rewards = []
+        episode_win_rates = []     # Number of wins / Number of auctions with a bid placed
+        episode_steps = []
+        cumulative_rewards = 0
+        cumulative_wins = 0
+        cumulative_bids_placed = 0
+        cumulative_episode_rewards = []
+        cumulative_episode_win_rates = []
+
+        if self.logging_frequency:
+            num_random_actions = 0      # for each logging period
+            num_greedy_actions = 0      # for each logging period
 
         # for step in range(1):     # For debug 
         for step in itertools.count():  # Infinite loop, need to break using some logic
+
             # Uses epsilon greedy approach for facilitating exploration in the beginning
             self.epsilon = np.interp(step, [0, self.epsilon_decay_period], [self.epsilon_start, self.epsilon_end])
             if random.random() <= self.epsilon:
                 bid, action, bid_price = self.random_action(info["remaining_budget"])   # Take a random action
+                num_random_actions += 1
             else:
-                bid, action, bid_price = self.select_action(obs)    # Take a greedy action to maximize the future reward
+                bid, action, bid_price = self.select_action(obs, info["remaining_budget"])    # Take a greedy action to maximize the future reward
+                num_greedy_actions += 1
 
-            # print("Decides to", "bid" if bid else "not bid")
-            # print("Current available keywords:", self.env.get_current_available_keywords(), 'Selected:', env.get_all_ad_keywords()[action - 1] if action != 0 else None)
+            # if num_episodes_done in [0, num_episodes - 1] and self.index_to_keyword(action) in ['A', 'B', 'C']:
+            #     print('=======================')
+            #     print("Decides to", "bid" if bid else "not bid")
+            #     print("Current available keywords:", self.env.get_current_available_keywords(), 'Selected:', env.get_all_ad_keywords()[action - 1] if action != 0 else None)
 
             # Take the action and record the transition into the replay buffer
             keyword = self.index_to_keyword(action)
-            new_obs, reward, done, info = self.env.run_auction_step(bid, keyword, bid_price, verbose=True) 
+            new_obs, reward, done, info = self.env.run_auction_step(bid, keyword, bid_price) 
             transition = (obs, action, reward, info["highest_competitor_bid"], done, new_obs)
             self.replay_buffer.append(transition)
             obs = new_obs
             episode_reward += reward
-            # print(f"Bid for index {action} : {keyword} at price {bid_price} and", "won" if info["win"] else "lost")
+            cumulative_rewards += reward
+            # if num_episodes_done in [0, num_episodes - 1] and keyword in ['A', 'B', 'C']:
+            #     print(f"Bid for index {action} : {keyword} at price {bid_price} and", "won" if info["win"] else "lost")
+            if bid:
+                num_bids_placed += 1
+                cumulative_bids_placed += 1
+                if info["win"]:
+                    num_wins += 1
+                    cumulative_wins += 1
+            num_episode_steps += 1
 
             # Record the total reward earned and reset for the next episode
             if done:
-                obs, info = self.env.reset()
                 self.reward_buffer.append(episode_reward)
+                episode_rewards.append(episode_reward)
+                episode_win_rates.append(num_wins / num_episode_steps)
+                episode_steps.append(num_episode_steps)
+                cumulative_episode_rewards.append(cumulative_rewards)
+                cumulative_episode_win_rates.append(cumulative_wins / cumulative_bids_placed)
+
+                obs, info = self.env.reset()
                 episode_reward = 0
+                num_wins = 0
+                num_bids_placed = 0
+                num_episode_steps = 0
                 num_episodes_done += 1
 
                 ### After the number of episodes is reach, break the training loop
                 if num_episodes_done >= num_episodes:
+                    if model_save_path:
+                        torch.save(self.online_net.state_dict(), model_save_path)
                     break
 
             ### Starts gradient step, sample random minibatch of transitions from the replay buffer
@@ -181,14 +226,33 @@ class DQNAgent:
             # and what the actual reward is (plus the predicted future reward by target_net)
             loss_DQN = nn.functional.smooth_l1_loss(action_q_values, targets)
             # Calculate the loss between the predicted price and the actual price needed to win the bid
-            loss_price = nn.functional.mse_loss(bid_prices, price_to_win)
+            loss_price = nn.functional.smooth_l1_loss(bid_prices, price_to_win)
+            
 
-            loss_total = self.weight_DQN_loss * loss_DQN + self.weight_price_loss * loss_price
+            # loss_total = self.weight_DQN_loss * loss_DQN + self.weight_price_loss * loss_price
 
             ### Gradient Descent: update the online net to have more accurate estimation of the rewards 
             # that can be earned by each action on an observation state
+            # self.optimizer.zero_grad()
+            # loss_total.backward()
+            # self.optimizer.step()
+
+            # Step 1: Update the keyword_head using loss_DQN (freezing price_head)
             self.optimizer.zero_grad()
-            loss_total.backward()
+            for param in self.online_net.price_head.parameters():
+                param.requires_grad = False  # Freeze price_head, only updating keyword_head here
+            loss_DQN.backward(retain_graph=True)  # Retain graph for the second backward pass
+
+            # Step 2: Update the price_head using loss_price (freezing keyword_head)
+            for param in self.online_net.price_head.parameters():
+                param.requires_grad = True  # Unfreeze price_head
+            for param in self.online_net.keyword_head.parameters():
+                param.requires_grad = False  # Freeze keyword_head
+            loss_price.backward()
+
+            # Step 3: Backward pass (unfreezing keyword_head)
+            for param in self.online_net.keyword_head.parameters():
+                param.requires_grad = True  # Unfreeze keyword_head
             self.optimizer.step()
 
             ### Update the target net model by copying over the online net's parameter by a frequency
@@ -196,10 +260,94 @@ class DQNAgent:
                 self.target_net.load_state_dict(self.online_net.state_dict())
 
             ### Logging
-            if step % self.logging_frequency == 0:
-                print(f'Step {step} - Episode {num_episodes_done}')
+            if self.logging_frequency and step > 0 and step % self.logging_frequency == 0:
+                print(f'Step {step} - Episode {num_episodes_done} ({num_random_actions} random actions, {num_greedy_actions} greedy actions)')
                 print(f'Average reward of past {len(self.reward_buffer)} episodes : {np.mean(self.reward_buffer)}')
+                # print(f'Step {step} - Episode {num_episodes_done} ({num_random_actions} random actions, {num_greedy_actions} greedy actions) - Last Done Episode Reward = {episode_rewards[-1]}')
+                num_random_actions = 0
+                num_greedy_actions = 0
         
+        info = {
+            'num_episodes' : num_episodes_done,
+            'episode_rewards' : episode_rewards,
+            'episode_win_rates' : episode_win_rates,
+            'cumulative_episode_rewards' : cumulative_episode_rewards,
+            'cumulative_win_rates' : cumulative_episode_win_rates,
+            'episode_steps' : episode_steps
+        }
+        return info
+    
+
+    def evaluate(self, num_episodes=5, model_save_path: str = None):
+        with torch.no_grad():
+            if model_save_path:
+                self.online_net.load_state_dict(torch.load(model_save_path))
+            self.online_net.eval()
+            obs, info = self.env.reset()
+
+            # For tracking and visualization
+            episode_reward = 0
+            num_wins = 0
+            num_bids_placed = 0
+            num_episode_steps = 0
+            episode_rewards = []
+            episode_win_rates = []     # Number of wins / Number of auctions with a bid placed
+            episode_steps = []
+            cumulative_rewards = 0
+            cumulative_wins = 0
+            cumulative_bids_placed = 0
+            cumulative_episode_rewards = []
+            cumulative_episode_win_rates = []
+
+            # for step in range(1):     # For debug 
+            for episode in range(num_episodes):  # Infinite loop, need to break using some logic
+                bid, action, bid_price = self.select_action(obs, info["remaining_budget"])    # Take a greedy action to maximize the future reward
+
+                print("Decides to", "bid" if bid else "not bid")
+                print("Current available keywords:", self.env.get_current_available_keywords(), 'Selected:', env.get_all_ad_keywords()[action - 1] if action != 0 else None)
+
+                # Take the action and record the transition into the replay buffer
+                keyword = self.index_to_keyword(action)
+                obs, reward, done, info = self.env.run_auction_step(bid, keyword, bid_price) 
+                episode_reward += reward
+                cumulative_rewards += reward
+                print(f"Bid for index {action} : {keyword} at price {bid_price} and", "won" if info["win"] else "lost")
+
+                if bid:
+                    num_bids_placed += 1
+                    cumulative_bids_placed += 1
+                    if info["win"]:
+                        num_wins += 1
+                        cumulative_wins += 1
+                num_episode_steps += 1
+
+                # Record the total reward earned and reset for the next episode
+                if done:
+                    self.reward_buffer.append(episode_reward)
+                    episode_rewards.append(episode_reward)
+                    episode_win_rates.append(num_wins / num_episode_steps)
+                    episode_steps.append(num_episode_steps)
+                    cumulative_episode_rewards.append(cumulative_rewards)
+                    cumulative_episode_win_rates.append(cumulative_wins / cumulative_bids_placed)
+
+                    obs, info = self.env.reset()
+                    episode_reward = 0
+                    num_wins = 0
+                    num_bids_placed = 0
+                    num_episode_steps = 0
+            
+            info = {
+                'num_episodes' : num_episodes,
+                'episode_rewards' : episode_rewards,
+                'episode_win_rates' : episode_win_rates,
+                'cumulative_episode_rewards' : cumulative_episode_rewards,
+                'cumulative_win_rates' : cumulative_episode_win_rates,
+                'episode_steps' : episode_steps
+            }
+        
+            return info
+
+
 
 class DeepQBidNet(nn.Module):
     '''A multi-task model that has 2 heads for predicting keyword selection and bid price respectively.'''
@@ -209,12 +357,22 @@ class DeepQBidNet(nn.Module):
         in_features = int(np.prod(env.get_observation_space_dim()))
         self.main_trunk = nn.Sequential(
             nn.Linear(in_features, 128),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(128, 64),
             nn.ReLU()
         )
-        self.keyword_head = nn.Linear(64, env.get_action_space_dim())
-        self.price_head = nn.Linear(64, 1)
+        # self.keyword_head = nn.Linear(64, env.get_action_space_dim())
+        # self.price_head = nn.Linear(64, 1)
+        self.keyword_head = nn.Sequential(
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, env.get_action_space_dim())
+        )
+        self.price_head = nn.Sequential(
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 1)
+        )
     
     def forward(self, x):
         shared_features = self.main_trunk(x)
@@ -228,12 +386,52 @@ class DeepQBidNet(nn.Module):
         q_values, bid_price = self(obs_tensor.unsqueeze(0)) # add in batch dimension, then forward pass
         max_q_index = torch.argmax(q_values, dim=1)
         action = max_q_index.detach().item()
-        # print('q_values', q_values)
-        # print('action', action)
         return action, bid_price
     
 
 if __name__ == "__main__":
-    env = AuctionSimulator(initial_budget=1000, keyword_list=['A', 'B', 'C'])
+    env = AuctionSimulator(initial_budget=10000, keyword_list=['A', 'B', 'C'])
     agent = DQNAgent(env)
-    agent.train()
+    info = agent.train(num_episodes=1000, model_save_path='DQN_Agent/Models_Saved/multi_task_DQN.pth')
+
+    # print(info)
+
+    # Visualization 1: reward graph
+    plt.plot(info['episode_rewards'], color='crimson')
+    plt.title('Model Learning (Rewards Over Time)')
+    plt.xlabel('Episodes')
+    plt.ylabel('Reward')
+    plt.savefig('DQN_Agent/Visualization/reward_graph.jpg')
+    plt.close()
+
+    # Visualization 2: win rate graph (denominator being the number of auctions the agent choose to place a bid)
+    plt.plot(info['episode_win_rates'], color='crimson')
+    plt.title('Win Rate Over Time')
+    plt.xlabel('Episodes')
+    plt.ylabel('Win Rate (Excluding Skipped Auctions)')
+    plt.savefig('DQN_Agent/Visualization/win_rate_graph.jpg')
+    plt.close()
+
+    # Visualization 3: trend graph of the total number of steps in an episode
+    plt.plot(info['episode_steps'], color='crimson')
+    plt.title('Budget Optimization Over Time')
+    plt.xlabel('Episodes')
+    plt.ylabel('Number of Auctions')
+    plt.savefig('DQN_Agent/Visualization/steps_count_graph.jpg')
+    plt.close()
+
+    # Visualization 4: cumulative reward graph
+    plt.plot(info['cumulative_episode_rewards'], color='crimson')
+    plt.title('Model Learning (Rewards Over Time)')
+    plt.xlabel('Episodes')
+    plt.ylabel('Reward')
+    plt.savefig('DQN_Agent/Visualization/cumulative_reward_graph.jpg')
+    plt.close()
+
+    # Visualization 5: cumulative win rate graph (denominator being the number of auctions the agent choose to place a bid)
+    plt.plot(info['cumulative_win_rates'], color='crimson')
+    plt.title('Win Rate Over Time')
+    plt.xlabel('Episodes')
+    plt.ylabel('Win Rate (Excluding Skipped Auctions)')
+    plt.savefig('DQN_Agent/Visualization/cumulative_win_rate_graph.jpg')
+    plt.close()
