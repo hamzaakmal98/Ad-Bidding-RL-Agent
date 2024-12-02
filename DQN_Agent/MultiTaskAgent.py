@@ -44,7 +44,7 @@ class DQNAgent:
         logging_frequency (int or None) : frequency of the logging during training (by the number of steps). 
                                           If None, then no logging will be shown
     '''
-    def __init__(self, env: AuctionSimulator, gamma: float = 0.5, train_batch_size: int = 32,
+    def __init__(self, env: AuctionSimulator, gamma: float = 0.75, train_batch_size: int = 32,
                  replay_buffer_size: int = 50000, min_replay_size: int = 1000, reward_buffer_size: int = 10, 
                  epsilon_start: float = 1.0, epsilon_end: float = 0.01, epsilon_decay_period: int = 20000,
                  weight_DQN_loss: float = 1.0, weight_price_loss: float = 1.0,
