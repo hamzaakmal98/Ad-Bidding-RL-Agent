@@ -43,7 +43,8 @@ class DQNAgent:
                  replay_buffer_size: int = 50000, min_replay_size: int = 1000, reward_buffer_size: int = 10, 
                  epsilon_start: float = 1.0, epsilon_end: float = 0.01, epsilon_decay_period: int = 20000,
                  weight_DQN_loss: float = 1.0, weight_price_loss: float = 1.0,
-                 target_update_frequency: int = 1000, learning_rate: float = 5e-4, logging_frequency: Optional[int] = 1000):
+                 target_update_frequency: int = 1000, learning_rate: float = 5e-4, logging_frequency: Optional[int] = 1000,
+                 device: str ='cpu'):
         self.env = env
         self.gamma = gamma
         self.train_batch_size = train_batch_size
@@ -58,6 +59,7 @@ class DQNAgent:
         self.target_update_frequency = target_update_frequency
         self.learning_rate = learning_rate
         self.logging_frequency = logging_frequency
+        self.device = device
 
         # Keeps track of (observation, action, reward, done, new_observation) transitions that have been played
         self.replay_buffer = deque(maxlen=replay_buffer_size)
@@ -65,8 +67,8 @@ class DQNAgent:
         self.reward_buffer = deque([0], maxlen=reward_buffer_size)
 
         ### Use the Double Q-learning approach to mitigate over-optimism
-        self.online_net = DeepQBidNet(env)      # the main model to be optimized to predict expected reward more accurately
-        self.target_net = DeepQBidNet(env)      # the target model for predicting future reward
+        self.online_net = DeepQBidNet(env).to(device)      # the main model to be optimized to predict expected reward more accurately
+        self.target_net = DeepQBidNet(env).to(device)      # the target model for predicting future reward
 
         # Ensures the 2 model have the same initialization
         self.target_net.load_state_dict(self.online_net.state_dict())
@@ -76,7 +78,7 @@ class DQNAgent:
 
     def select_action(self, obs, budget):
         '''Select an action using the Online Net to maximize the future reward.'''
-        action, bid_price = self.online_net.act(obs)
+        action, bid_price = self.online_net.act(torch.tensor(obs).to(self.device))
         bid = action != 0 and self.index_to_keyword(action) in self.env.get_current_available_keywords()
         bid_price = torch.clamp(bid_price, 0, budget).item()
         return bid, action, bid_price
@@ -199,16 +201,16 @@ class DQNAgent:
 
             # Separate the transitions into tensors of observations, actions, rewards, dones, and new_observations
             # * Note: First converts lists to np arrays then to torch tensors can be faster than directly from lists to tensors
-            observations = torch.as_tensor(np.asarray([t[0] for t in transitions]), dtype=torch.float32)
+            observations = torch.as_tensor(np.asarray([t[0] for t in transitions]), dtype=torch.float32).to(self.device)
             # The batch number is the number of randomly sampled transitions, add an dimension at the end to make each batch have its own sub tensor 
-            actions = torch.as_tensor(np.asarray([t[1] for t in transitions]), dtype=torch.int64).unsqueeze(-1)
-            rewards = torch.as_tensor(np.asarray([t[2] for t in transitions]), dtype=torch.float32).unsqueeze(-1)
+            actions = torch.as_tensor(np.asarray([t[1] for t in transitions]), dtype=torch.int64).unsqueeze(-1).to(self.device)
+            rewards = torch.as_tensor(np.asarray([t[2] for t in transitions]), dtype=torch.float32).unsqueeze(-1).to(self.device)
             # The fourth element in each transition tuple is the highest competitor bid price for the keyword selected for that round
             # (if the agent decides not to bid on any keyword in a round, this value will be 0). A small value of 1 is added, 
             # so the agent will be trained to give a bid price slightly higher than the possible highest competitor price
-            price_to_win = torch.as_tensor(np.asarray([t[3] for t in transitions]) + 1, dtype=torch.float32).unsqueeze(-1)
-            dones = torch.as_tensor(np.asarray([t[4] for t in transitions]), dtype=torch.float32).unsqueeze(-1)
-            new_observations = torch.as_tensor(np.asarray([t[5] for t in transitions]), dtype=torch.float32)
+            price_to_win = torch.as_tensor(np.asarray([t[3] for t in transitions]) + 1, dtype=torch.float32).unsqueeze(-1).to(self.device)
+            dones = torch.as_tensor(np.asarray([t[4] for t in transitions]), dtype=torch.float32).unsqueeze(-1).to(self.device)
+            new_observations = torch.as_tensor(np.asarray([t[5] for t in transitions]), dtype=torch.float32).to(self.device)
 
             ### Compute target for loss function
             target_q_values, _ = self.target_net(new_observations)
@@ -229,31 +231,31 @@ class DQNAgent:
             loss_price = nn.functional.smooth_l1_loss(bid_prices, price_to_win)
             
 
-            # loss_total = self.weight_DQN_loss * loss_DQN + self.weight_price_loss * loss_price
+            loss_total = self.weight_DQN_loss * loss_DQN + self.weight_price_loss * loss_price
 
-            ### Gradient Descent: update the online net to have more accurate estimation of the rewards 
+            ## Gradient Descent: update the online net to have more accurate estimation of the rewards 
             # that can be earned by each action on an observation state
-            # self.optimizer.zero_grad()
-            # loss_total.backward()
-            # self.optimizer.step()
-
-            # Step 1: Update the keyword_head using loss_DQN (freezing price_head)
             self.optimizer.zero_grad()
-            for param in self.online_net.price_head.parameters():
-                param.requires_grad = False  # Freeze price_head, only updating keyword_head here
-            loss_DQN.backward(retain_graph=True)  # Retain graph for the second backward pass
-
-            # Step 2: Update the price_head using loss_price (freezing keyword_head)
-            for param in self.online_net.price_head.parameters():
-                param.requires_grad = True  # Unfreeze price_head
-            for param in self.online_net.keyword_head.parameters():
-                param.requires_grad = False  # Freeze keyword_head
-            loss_price.backward()
-
-            # Step 3: Backward pass (unfreezing keyword_head)
-            for param in self.online_net.keyword_head.parameters():
-                param.requires_grad = True  # Unfreeze keyword_head
+            loss_total.backward()
             self.optimizer.step()
+
+            # # Step 1: Update the keyword_head using loss_DQN (freezing price_head)
+            # self.optimizer.zero_grad()
+            # for param in self.online_net.price_head.parameters():
+            #     param.requires_grad = False  # Freeze price_head, only updating keyword_head here
+            # loss_DQN.backward(retain_graph=True)  # Retain graph for the second backward pass
+
+            # # Step 2: Update the price_head using loss_price (freezing keyword_head)
+            # for param in self.online_net.price_head.parameters():
+            #     param.requires_grad = True  # Unfreeze price_head
+            # for param in self.online_net.keyword_head.parameters():
+            #     param.requires_grad = False  # Freeze keyword_head
+            # loss_price.backward()
+
+            # # Step 3: Backward pass (unfreezing keyword_head)
+            # for param in self.online_net.keyword_head.parameters():
+            #     param.requires_grad = True  # Unfreeze keyword_head
+            # self.optimizer.step()
 
             ### Update the target net model by copying over the online net's parameter by a frequency
             if step % self.target_update_frequency == 0:
@@ -390,9 +392,19 @@ class DeepQBidNet(nn.Module):
     
 
 if __name__ == "__main__":
+    device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps"
+        if torch.backends.mps.is_available()
+        else "cpu"
+    )
+
+    print("Training using", device)
+
     env = AuctionSimulator(initial_budget=10000, keyword_list=['A', 'B', 'C'])
-    agent = DQNAgent(env)
-    info = agent.train(num_episodes=1000, model_save_path='DQN_Agent/Models_Saved/multi_task_DQN.pth')
+    agent = DQNAgent(env, device=device)
+    info = agent.train(num_episodes=10000, model_save_path='DQN_Agent/Models_Saved/multi_task_DQN.pth')
 
     # print(info)
 
