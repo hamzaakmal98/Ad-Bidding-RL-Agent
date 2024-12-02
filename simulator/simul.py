@@ -1,5 +1,5 @@
 """
-Contributor: Hamza, Weijia
+Contributor: Hamza, Weijia, Keegan
 
 This module simulates a second-price auction environment for ad bidding.
 The simulation includes:
@@ -71,11 +71,11 @@ class AuctionSimulator:
             keyword agent chose. note: keyword is None if agent doesn't bid
 
         :return: int - rank based on index of the keyword in the list of desired keywords.
-                note: returns 0 if keyword not in desired keywords list, otherwise returns int>0
+                note: returns 0 if keyword not in desired keywords list, otherwise returns int>1
         """
 
         if keyword in self.desired_keywords:
-            return self.desired_keywords.index(keyword) + 1   
+            return self.desired_keywords.index(keyword) + 2   
         else:
             return 0
     
