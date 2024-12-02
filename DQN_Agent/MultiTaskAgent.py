@@ -16,7 +16,7 @@ from simulator.simul import AuctionSimulator
 
 
 '''
-Contributor: Weijia
+Contributor: Weijia, Keegan
 
 This implementation uses a single multi-task multi-head model as the backbone of the DQN agent. 
 '''
