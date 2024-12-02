@@ -1,4 +1,5 @@
 '''
+Contributor: Keegan, Weijia
 
    Overall goal of rewards:
 
