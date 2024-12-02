@@ -7,8 +7,10 @@ import random
 from typing import Optional
 import sys
 import matplotlib.pyplot as plt
-sys.path.append(sys.path[0] + '/../')
+import os
+sys.path.append(os.getcwd())
 from simulator.simul import AuctionSimulator
+
 
 '''
 Contributor: Weijia
@@ -39,7 +41,7 @@ class DQNAgent:
         logging_frequency (int or None) : frequency of the logging during training (by the number of steps). 
                                           If None, then no logging will be shown
     '''
-    def __init__(self, env: AuctionSimulator, gamma: float = 0.99, train_batch_size: int = 32, 
+    def __init__(self, env: AuctionSimulator, gamma: float = 0.5, train_batch_size: int = 32,
                  replay_buffer_size: int = 50000, min_replay_size: int = 1000, reward_buffer_size: int = 10, 
                  epsilon_start: float = 1.0, epsilon_end: float = 0.01, epsilon_decay_period: int = 20000,
                  weight_DQN_loss: float = 1.0, weight_price_loss: float = 1.0,
@@ -392,7 +394,7 @@ class DeepQBidNet(nn.Module):
 if __name__ == "__main__":
     env = AuctionSimulator(initial_budget=10000, keyword_list=['A', 'B', 'C'])
     agent = DQNAgent(env)
-    info = agent.train(num_episodes=1000, model_save_path='DQN_Agent/Models_Saved/multi_task_DQN.pth')
+    info = agent.train(num_episodes=2000, model_save_path='./Models_Saved/multi_task_DQN.pth')
 
     # print(info)
 
@@ -401,7 +403,7 @@ if __name__ == "__main__":
     plt.title('Model Learning (Rewards Over Time)')
     plt.xlabel('Episodes')
     plt.ylabel('Reward')
-    plt.savefig('DQN_Agent/Visualization/reward_graph.jpg')
+    plt.savefig('./Visualization/reward_graph.jpg')
     plt.close()
 
     # Visualization 2: win rate graph (denominator being the number of auctions the agent choose to place a bid)
@@ -409,7 +411,7 @@ if __name__ == "__main__":
     plt.title('Win Rate Over Time')
     plt.xlabel('Episodes')
     plt.ylabel('Win Rate (Excluding Skipped Auctions)')
-    plt.savefig('DQN_Agent/Visualization/win_rate_graph.jpg')
+    plt.savefig('./Visualization/win_rate_graph.jpg')
     plt.close()
 
     # Visualization 3: trend graph of the total number of steps in an episode
@@ -417,7 +419,7 @@ if __name__ == "__main__":
     plt.title('Budget Optimization Over Time')
     plt.xlabel('Episodes')
     plt.ylabel('Number of Auctions')
-    plt.savefig('DQN_Agent/Visualization/steps_count_graph.jpg')
+    plt.savefig('./Visualization/steps_count_graph.jpg')
     plt.close()
 
     # Visualization 4: cumulative reward graph
@@ -425,7 +427,7 @@ if __name__ == "__main__":
     plt.title('Model Learning (Rewards Over Time)')
     plt.xlabel('Episodes')
     plt.ylabel('Reward')
-    plt.savefig('DQN_Agent/Visualization/cumulative_reward_graph.jpg')
+    plt.savefig('./Visualization/cumulative_reward_graph.jpg')
     plt.close()
 
     # Visualization 5: cumulative win rate graph (denominator being the number of auctions the agent choose to place a bid)
@@ -433,5 +435,5 @@ if __name__ == "__main__":
     plt.title('Win Rate Over Time')
     plt.xlabel('Episodes')
     plt.ylabel('Win Rate (Excluding Skipped Auctions)')
-    plt.savefig('DQN_Agent/Visualization/cumulative_win_rate_graph.jpg')
+    plt.savefig('./Visualization/cumulative_win_rate_graph.jpg')
     plt.close()
