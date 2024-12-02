@@ -7,8 +7,11 @@ import random
 from typing import Optional
 import sys
 import matplotlib.pyplot as plt
+
+#change to sys.path.append(sys.path[0] + '/../') if not os, make sure to change plot file paths too
 import os
 sys.path.append(os.getcwd())
+
 from simulator.simul import AuctionSimulator
 
 
