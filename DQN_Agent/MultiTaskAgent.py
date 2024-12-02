@@ -39,7 +39,7 @@ class DQNAgent:
         logging_frequency (int or None) : frequency of the logging during training (by the number of steps). 
                                           If None, then no logging will be shown
     '''
-    def __init__(self, env: AuctionSimulator, gamma: float = 0.99, train_batch_size: int = 32, 
+    def __init__(self, env: AuctionSimulator, gamma: float = 0.5, train_batch_size: int = 32, 
                  replay_buffer_size: int = 50000, min_replay_size: int = 1000, reward_buffer_size: int = 10, 
                  epsilon_start: float = 1.0, epsilon_end: float = 0.01, epsilon_decay_period: int = 20000,
                  weight_DQN_loss: float = 1.0, weight_price_loss: float = 1.0,
@@ -410,9 +410,10 @@ if __name__ == "__main__":
 
     # Visualization 1: reward graph
     plt.plot(info['episode_rewards'], color='crimson')
-    plt.title('Model Learning (Rewards Over Time)')
+    plt.title('Model Learning (Rewards per Episode Over Time)')
     plt.xlabel('Episodes')
     plt.ylabel('Reward')
+    plt.tight_layout()
     plt.savefig('DQN_Agent/Visualization/reward_graph.jpg')
     plt.close()
 
@@ -421,6 +422,7 @@ if __name__ == "__main__":
     plt.title('Win Rate Over Time')
     plt.xlabel('Episodes')
     plt.ylabel('Win Rate (Excluding Skipped Auctions)')
+    plt.tight_layout()
     plt.savefig('DQN_Agent/Visualization/win_rate_graph.jpg')
     plt.close()
 
@@ -429,21 +431,24 @@ if __name__ == "__main__":
     plt.title('Budget Optimization Over Time')
     plt.xlabel('Episodes')
     plt.ylabel('Number of Auctions')
+    plt.tight_layout()
     plt.savefig('DQN_Agent/Visualization/steps_count_graph.jpg')
     plt.close()
 
     # Visualization 4: cumulative reward graph
     plt.plot(info['cumulative_episode_rewards'], color='crimson')
-    plt.title('Model Learning (Rewards Over Time)')
+    plt.title('Cumulative Model Learning (Total Rewards Over Time)')
     plt.xlabel('Episodes')
     plt.ylabel('Reward')
+    plt.tight_layout()
     plt.savefig('DQN_Agent/Visualization/cumulative_reward_graph.jpg')
     plt.close()
 
     # Visualization 5: cumulative win rate graph (denominator being the number of auctions the agent choose to place a bid)
     plt.plot(info['cumulative_win_rates'], color='crimson')
-    plt.title('Win Rate Over Time')
+    plt.title('Cumulative Win Rate Over Time')
     plt.xlabel('Episodes')
     plt.ylabel('Win Rate (Excluding Skipped Auctions)')
+    plt.tight_layout()
     plt.savefig('DQN_Agent/Visualization/cumulative_win_rate_graph.jpg')
     plt.close()
