@@ -1,4 +1,5 @@
 '''
+Contributor: Keegan, Weijia
 
    Overall goal of rewards:
 
@@ -79,13 +80,9 @@ def calculate_reward(variables_dict,initial_budget,max_budget_consumption_per_au
     # no impressions won since agent lost auction or didn't participate in the auction (no bid),
     # so no reward unless it's an auction we don't mind losing
     if not won:
-        return -keyword_importance
-        # # case where it's an auction we don't mind losing
-        # if not priority_keyword: #if not a priorty keyword, then it's okay that we didn't win and we don't want to penalize
-        #     return - keyword_importance # just go ahead and return the reward (skip computation below)
-
-        # # case where we lost and we aren't happy about it
-        # return 0
+        # Return the same penalty regardless of the keyword importance 
+        # so the agent won't be scared to pick the high ranked keywords
+        return -10
 
     else:
         # agent won the auction of a keyword we care about
