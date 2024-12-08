@@ -10,6 +10,8 @@ To reproduce the result in the report (cumulative average win rate over time bei
 
 ### Specific configuration details:
 
+Script hyperparameters:
+
 | Hyperparameters | Values |
 | ----------- | ----------- |
 | gamma | 0.75 |
@@ -26,3 +28,15 @@ To reproduce the result in the report (cumulative average win rate over time bei
 | learning_rate | 0.0005 |
 | initial_budget | 10000 |
 | num_episodes | 10000 |
+
+
+This configuration took 3 hours to train on a cluster with the following configurations:
+
+| Hyperparameters | Values |
+| ----------- | ----------- |
+| GPU Type | A100 | 
+| GPU node count | 1 | 
+| CPU count | 2 | 
+| Memory | 16G | 
+| python version | 3.8.8 | 
+| anaconda version | 2021.11 | 
