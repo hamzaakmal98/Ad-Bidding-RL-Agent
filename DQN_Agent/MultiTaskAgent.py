@@ -12,12 +12,7 @@ import datetime
 import sys
 sys.path.append(sys.path[0] + '/../')
 
-# Change file paths in main() to start from './' if using this approach
-# import os
-# sys.path.append(os.getcwd())
-
 from simulator.simul import AuctionSimulator
-
 
 '''
 Contributor: Weijia, Keegan
@@ -404,7 +399,7 @@ if __name__ == "__main__":
 
     print("Training using", device)
     
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M")
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
     
     file_name_suffix = f"_gamma{gamma}_train_batch_size{train_batch_size}_replay_buffer_size{replay_buffer_size}_num_episodes{num_episodes}_{current_time}"
 
