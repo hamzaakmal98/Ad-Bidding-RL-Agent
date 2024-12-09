@@ -4,15 +4,15 @@
 
 
 ## DQN Agent
-To reproduce the result in the report (cumulative average win rate over time being over 50%), please clone the repository and run the following command in the terminal under the DQN_Agent folder: 
+To reproduce the result in the [report](report.pdf) (cumulative average win rate being over 50% at the end of training), please clone the repository and run the following command in the terminal under the DQN_Agent folder: 
 
 `python MultiTaskAgent.py --num_episodes 10000`
 
-### Specific configuration details:
+### Specific Configuration Details:
 
-Script hyperparameters:
+Agent hyperparameters:
 
-| Hyperparameters | Values |
+| Hyperparameter | Value |
 | ----------- | ----------- |
 | gamma | 0.75 |
 | train_batch_size | 32 |
@@ -30,11 +30,11 @@ Script hyperparameters:
 | num_episodes | 10000 |
 
 
-This configuration took 3 hours to train on a cluster with the following configurations:
+The training process took 3 hours to train on a cluster with the following settings:
 
-| Hyperparameters | Values |
+| Setting | |
 | ----------- | ----------- |
-| GPU Type | A100 | 
+| GPU type | A100 | 
 | GPU node count | 1 | 
 | CPU count | 2 | 
 | Memory | 16G | 
